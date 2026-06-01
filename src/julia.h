@@ -2337,6 +2337,8 @@ JL_DLLEXPORT jl_value_t *jl_compress_argnames(jl_array_t *syms);
 JL_DLLEXPORT jl_array_t *jl_uncompress_argnames(jl_value_t *syms);
 JL_DLLEXPORT jl_value_t *jl_uncompress_argname_n(jl_value_t *syms, size_t i);
 JL_DLLEXPORT struct jl_codeloc_t jl_uncompress1_codeloc(jl_debuginfo_t *di, size_t pc) JL_NOTSAFEPOINT;
+JL_DLLEXPORT size_t jl_codelocs_parseheader(jl_value_t *cl, int32_t *loc_offset, int32_t *loc_bytes, int32_t *to_bytes) JL_NOTSAFEPOINT;
+JL_DLLEXPORT struct jl_codeloc_t jl_unpack1_codeloc(jl_value_t *cl, size_t pc, int32_t loc_offset, int32_t loc_bytes, int32_t to_bytes, size_t nstmts) JL_NOTSAFEPOINT;
 JL_DLLEXPORT jl_value_t *jl_compress_codelocs(int32_t firstloc, jl_value_t *codelocs, size_t nstmts);
 JL_DLLEXPORT jl_value_t *jl_uncompress_codelocs(jl_debuginfo_t *di, size_t nstmts);
 JL_DLLEXPORT jl_locspan_t jl_cdi_bytespan(jl_debuginfo_t *di, int32_t pc) JL_NOTSAFEPOINT;

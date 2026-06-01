@@ -9336,16 +9336,35 @@ static jl_llvm_functions_t
     topinfo.is_user_code = mod_is_user_mod;
     topinfo.loc = topdebugloc;
     topinfo.edgeid = 0;
-    std::map<std::tuple<StringRef, StringRef>, DISubprogram*> subprograms;
+    // Keyed on the (fname, file) pointer pair: both are interned-symbol interiors or
+    // fixed literals, so pointer-equal iff content-equal -- avoids the per-statement
+    // memcmp tree walk a std::map<tuple<StringRef,StringRef>> does on every lookup.
+    DenseMap<std::pair<const char*, const char*>, DISubprogram*> subprograms;
     SmallVector<DebugLineTable, 0> prev_lineinfo, new_lineinfo;
+    // Per-function decode caches: parse each debuginfo's codelocs header and resolve its file
+    // once, rather than on every statement. jl_uncompress1_codeloc/jl_cdi_file are pure in the
+    // debuginfo object but re-parse the (pc-independent) header on every call.
+    struct CodelocHeader { int32_t loc_offset, loc_bytes, to_bytes; size_t nstmts; bool parsed; };
+    DenseMap<jl_debuginfo_t*, CodelocHeader> codeloc_headers;
+    DenseMap<jl_debuginfo_t*, const char*> file_cache;
+    auto uncompress1_cached = [&] (jl_debuginfo_t *di, size_t pc) -> struct jl_codeloc_t {
+        CodelocHeader &h = codeloc_headers[di];
+        if (!h.parsed) {
+            h.nstmts = jl_codelocs_parseheader(di->codelocs, &h.loc_offset, &h.loc_bytes, &h.to_bytes);
+            h.parsed = true;
+        }
+        return jl_unpack1_codeloc(di->codelocs, pc, h.loc_offset, h.loc_bytes, h.to_bytes, h.nstmts);
+    };
     auto update_lineinfo = [&](size_t outerpc) {
-        std::function<bool(jl_debuginfo_t *, jl_value_t *, size_t, size_t, bool)>
-            append_lineinfo = [&](jl_debuginfo_t *debuginfo, jl_value_t *func, size_t to,
-                                  size_t pc, bool innermost) -> bool {
+        // Recursive generic lambda (`self` passed explicitly) rather than a std::function:
+        // no per-statement heap allocation and no type-erased indirect call. Kept nested so it
+        // can capture `outerpc` for the leaf-pc column encoding below.
+        auto append_lineinfo = [&](auto &&self, jl_debuginfo_t *debuginfo, jl_value_t *func,
+                                   size_t to, size_t pc, bool innermost) -> bool {
             while (1) {
                 if (!jl_is_symbol(debuginfo->def)) // this is a path
                     func = debuginfo->def; // this is inlined
-                struct jl_codeloc_t lineidx = jl_uncompress1_codeloc(debuginfo, pc);
+                struct jl_codeloc_t lineidx = uncompress1_cached(debuginfo, pc);
                 size_t i = lineidx.loc;
                 if (i < 0) // pc out of range: broken debuginfo?
                     return false;
@@ -9353,8 +9372,8 @@ static jl_llvm_functions_t
                     return false;
                 if (pc > 0 && jl_is_debuginfo(debuginfo->linetable)) {
                     // indirection node
-                    if (!append_lineinfo((jl_debuginfo_t *)debuginfo->linetable,
-                                         func, to, i, lineidx.to == 0))
+                    if (!self(self, (jl_debuginfo_t *)debuginfo->linetable,
+                              func, to, i, lineidx.to == 0))
                         return false; // no update
                 }
                 else {
@@ -9364,7 +9383,10 @@ static jl_llvm_functions_t
                     jl_module_t *modu = func ? jl_debuginfo_module1(func) : NULL;
                     if (modu == NULL)
                         modu = ctx.module;
-                    info.file = jl_cdi_file(debuginfo);
+                    const char *&cached_file = file_cache[debuginfo];
+                    if (cached_file == NULL)
+                        cached_file = jl_cdi_file(debuginfo);
+                    info.file = cached_file;
                     info.line = i;
                     info.line0 = 0;
                     if (pc == 1) {
@@ -9402,7 +9424,7 @@ static jl_llvm_functions_t
                         }
                         else { // otherwise, describe this as an inlining frame
                             DebugLoc inl_loc = new_lineinfo.empty() ? DebugLoc(DILocation::get(ctx.builder.getContext(), 0, 0, SP, NULL)) : new_lineinfo.back().loc;
-                            DISubprogram *&inl_SP = subprograms[std::make_tuple(fname, info.file)];
+                            DISubprogram *&inl_SP = subprograms[{fname.data(), info.file.data()}];
                             if (inl_SP == NULL) {
                                 DIFile *difile = dbuilder.createFile(info.file, ".");
                                 inl_SP = dbuilder.createFunction(difile
@@ -9434,7 +9456,7 @@ static jl_llvm_functions_t
         };
         prev_lineinfo.truncate(0);
         std::swap(prev_lineinfo, new_lineinfo);
-        bool updated = append_lineinfo(src->debuginfo, (jl_value_t*)lam, 0, outerpc, true);
+        bool updated = append_lineinfo(append_lineinfo, src->debuginfo, (jl_value_t*)lam, 0, outerpc, true);
         if (!updated)
             std::swap(prev_lineinfo, new_lineinfo);
         else
@@ -9728,8 +9750,13 @@ static jl_llvm_functions_t
             mallocVisitStmt(sync_bytes, have_dbg_update);
             // N.B.: For toplevel thunks, we expect world age restore to be handled
             // by the interpreter which invokes us.
-            if (ctx.is_opaque_closure)
+            if (ctx.is_opaque_closure) {
+                // last_age/world_age_field were initialized together under this same
+                // ctx.is_opaque_closure guard above, so they are non-null here; assert it
+                // so the static analyzer does not see a possible null store on this path.
+                assert(last_age && world_age_field);
                 ctx.builder.CreateStore(last_age, world_age_field);
+            }
             assert(type_is_ghost(retty) || returninfo.cc == jl_returninfo_t::SRet ||
                 retval->getType() == ctx.f->getReturnType());
             ctx.builder.CreateRet(retval);

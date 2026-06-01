@@ -1447,6 +1447,30 @@ JL_DLLEXPORT struct jl_codeloc_t jl_uncompress1_codeloc(jl_debuginfo_t *di, size
     return unpack_codeloc(cl, pc, loc_offset, loc_bytes, to_bytes);
 }
 
+// Parse just the codelocs header of `cl` (loc_offset/loc_bytes/to_bytes), returning nstmts.
+// Exposed so a caller decoding many pcs of one debuginfo can parse the header once and reuse
+// it across jl_unpack1_codeloc calls instead of re-parsing on every decode (see codegen.cpp).
+JL_DLLEXPORT size_t jl_codelocs_parseheader(jl_value_t *cl, int32_t *loc_offset, int32_t *loc_bytes, int32_t *to_bytes) JL_NOTSAFEPOINT
+{
+    assert(jl_is_string(cl));
+    int lo, lb, tb;
+    size_t nstmts = codelocs_parseheader(cl, &lo, &lb, &tb);
+    *loc_offset = lo;
+    *loc_bytes = lb;
+    *to_bytes = tb;
+    return nstmts;
+}
+
+// Decode the codeloc at `pc` using a header from jl_codelocs_parseheader. Equivalent to
+// jl_uncompress1_codeloc (including the out-of-range bounds check) minus the header parse.
+JL_DLLEXPORT struct jl_codeloc_t jl_unpack1_codeloc(jl_value_t *cl, size_t pc, int32_t loc_offset, int32_t loc_bytes, int32_t to_bytes, size_t nstmts) JL_NOTSAFEPOINT
+{
+    assert(jl_is_string(cl));
+    if (pc > nstmts)
+        return badloc;
+    return unpack_codeloc(cl, pc, loc_offset, loc_bytes, to_bytes);
+}
+
 static const char *sbt_parseheader(jl_string_t *str, jl_sourcebytetable_header_t *h) JL_NOTSAFEPOINT
 {
     assert(jl_is_string(str));
