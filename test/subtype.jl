@@ -3196,3 +3196,58 @@ let X = Tuple{Union{Type{Int}, Type{Vector{T}} where T}, Union{Type{Int}, Type{V
     @test X <: Y
     @test typeintersect(X, Y) == X
 end
+
+# PR #61915 follow-up: `TypeEgal{T}` is the egality-based dual of `Type{T}`
+# (`TypeEq`) used for the dispatch-cache specialization on type values. Its only
+# instance is exactly `T` (matched by `===`), free typevars are disallowed, and
+# `TypeEgal{T} <: Type{T}` (egal implies equal) but not the converse.
+_typeegal_id(::Type{T}) where {T} = T
+@testset "TypeEgal" begin
+    TE = Core.TypeEgal
+    # membership is by egality (`===`), not type equality
+    @test isa(Int, TE{Int})
+    @test !isa(Integer, TE{Int})
+    @test !isa(Int, TE{Integer})
+    @test isa(Vector, TE{Vector})
+    @test isa(Union{Int,String}, TE{Union{Int,String}})
+    # egal implies equal: `TypeEgal{T} <: Type{T}`, but not the reverse
+    @test TE{Int} <: Type{Int}
+    @test !(Type{Int} <: TE{Int})
+    @test TE{Int} <: TE{Int}
+    @test !(TE{Int} <: TE{Integer})
+    @test !(TE{Integer} <: TE{Int})
+    @test TE{Int} <: Core.TypeEq{Int}
+    @test TE{Int} != Type{Int}
+    @test TE{Int} !== Type{Int}
+    # a `TypeEgal{T}` dispatches as the singleton `typeof(T)`
+    @test TE{Int} <: DataType
+    @test !(TE{Int} <: UnionAll)
+    @test TE{Vector} <: UnionAll
+    @test TE{Int} <: Any
+    @test TE{Int} <: Type
+    @test TE{Int} <: Core.AnyType
+    # nothing but `Union{}` and egal `TypeEgal`s is a subtype of `TypeEgal{T}`
+    @test !(DataType <: TE{Int})
+    @test !(Type{Int} <: TE{Int})
+    @test Union{} <: TE{Int}
+    @test Base.iskindtype(TE)
+    # free typevars are disallowed inside `TypeEgal`, but closed parameters are fine
+    @test_throws TypeError TE{TypeVar(:T)}
+    @test isa(TE{Vector{S} where S}, TE)
+    @test isa(Vector{S} where S, TE{Vector{S} where S})
+    # type intersection keeps the more-specific `TypeEgal`. Each `TypeEgal{T}` is
+    # freshly allocated (not pointer-identical), so compare by mutual subtyping.
+    tyeq(@nospecialize(a), @nospecialize(b)) = a <: b && b <: a
+    @test tyeq(typeintersect(TE{Int}, Type{Int}), TE{Int})
+    @test tyeq(typeintersect(Type{Int}, TE{Int}), TE{Int})
+    @test tyeq(typeintersect(TE{Int}, DataType), TE{Int})
+    @test typeintersect(TE{Int}, Type{Integer}) === Union{}
+    @test tyeq(typeintersect(TE{Int}, TE{Int}), TE{Int})
+    @test typeintersect(TE{Int}, TE{Integer}) === Union{}
+    @test tyeq(typeintersect(TE{Int}, (Type{T} where T)), TE{Int})
+    @test tyeq(typeintersect(TE{Int}, Any), TE{Int})
+    # the dispatch cache specializes type-valued arguments through `TypeEgal`
+    @test _typeegal_id(Int) === Int
+    @test _typeegal_id(Vector) === Vector
+    @test _typeegal_id(Union{Int,String}) === Union{Int,String}
+end

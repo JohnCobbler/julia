@@ -1053,6 +1053,7 @@ typedef struct {
     XX(gotonode) \
     XX(quotenode) \
     XX(typeeq) \
+    XX(typeegal) \
     /* Add new tags here to keep existing builds ABI stable - we don't guarantee ABI \
        stability, but it'll help PkgEval to not break it unnecessarily */ \
     /* end of JL_SMALL_TYPEOF */
@@ -1640,6 +1641,7 @@ static inline int jl_field_isconst(jl_datatype_t *st, int i) JL_NOTSAFEPOINT
 #define jl_is_uniontype(v)   jl_typetagis(v,jl_uniontype_tag<<4)
 #define jl_is_intersecttype(v) jl_typetagis(v,jl_intersect_type)
 #define jl_is_typeeq(v)      jl_typetagis(v,jl_typeeq_tag<<4)
+#define jl_is_typeegal(v)    jl_typetagis(v,jl_typeegal_tag<<4)
 #define jl_is_typevar(v)     jl_typetagis(v,jl_tvar_tag<<4)
 #define jl_is_unionall(v)    jl_typetagis(v,jl_unionall_tag<<4)
 #define jl_is_vararg(v)      jl_typetagis(v,jl_vararg_tag<<4)
@@ -1703,6 +1705,7 @@ STATIC_INLINE int jl_is_kind(jl_value_t *v) JL_NOTSAFEPOINT
 {
     return (v==(jl_value_t*)jl_anytype_type || v==(jl_value_t*)jl_uniontype_type || v==(jl_value_t*)jl_datatype_type ||
             v==(jl_value_t*)jl_unionall_type || v==(jl_value_t*)jl_typeeq_type ||
+            v==(jl_value_t*)jl_typeegal_type ||
             v==(jl_value_t*)jl_typeofbottom_type);
 }
 
@@ -1711,6 +1714,7 @@ STATIC_INLINE int jl_is_kindtag(uintptr_t t) JL_NOTSAFEPOINT
     t >>= 4;
     return (t==(uintptr_t)jl_uniontype_tag || t==(uintptr_t)jl_datatype_tag ||
             t==(uintptr_t)jl_unionall_tag || t==(uintptr_t)jl_typeeq_tag ||
+            t==(uintptr_t)jl_typeegal_tag ||
             t==(uintptr_t)jl_typeofbottom_tag);
 }
 
@@ -1846,6 +1850,29 @@ STATIC_INLINE int jl_is_vecelement_type(jl_value_t* t) JL_NOTSAFEPOINT
 STATIC_INLINE jl_value_t *jl_typeeq_T(jl_value_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
 {
     assert(jl_is_typeeq(v));
+    return ((jl_typeeq_t*)v)->T;
+}
+
+// `TypeEgal{T}` shares the `jl_typeeq_t` layout (a single field `T`), but its
+// instances are matched by egality (`===`) rather than type equality (`==`).
+// It is used internally for the dispatch-cache specialization on type values.
+// Free typevars are not permitted inside `T`.
+STATIC_INLINE jl_value_t *jl_typeegal_T(jl_value_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
+{
+    assert(jl_is_typeegal(v));
+    return ((jl_typeeq_t*)v)->T;
+}
+
+// true for both the equality (`TypeEq`/`Type{T}`) and egality (`TypeEgal{T}`)
+// type wrappers, which share a representation and most structural handling
+STATIC_INLINE int jl_is_some_typeeq(jl_value_t *v) JL_NOTSAFEPOINT
+{
+    return jl_is_typeeq(v) || jl_is_typeegal(v);
+}
+
+STATIC_INLINE jl_value_t *jl_some_typeeq_T(jl_value_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
+{
+    assert(jl_is_some_typeeq(v));
     return ((jl_typeeq_t*)v)->T;
 }
 

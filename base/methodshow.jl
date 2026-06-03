@@ -308,8 +308,8 @@ function _modulecolor(method::Method)
     # would derive this same information (for the name).
     ft = argument_datatype((unwrap_unionall(method.sig)::DataType).parameters[1])
     # `ft` should be the type associated with the first argument in the method signature.
-    # If it's `Type`, try to unwrap it again.
-    if isType(ft)
+    # If it's `Type` (or the dispatch-cache `TypeEgal{T}`), try to unwrap it again.
+    if isType(ft) || isa(ft, Core.TypeEgal)
         ft = argument_datatype(type_parameter(ft))
     end
     if ft === nothing || parentmodule(method) === parentmodule(ft) !== Core

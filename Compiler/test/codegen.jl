@@ -802,7 +802,10 @@ function f34459(args...)
     Base.pointerset(args[1], 1, 1, 1)
     return
 end
-@test !occursin("jl_f_tuple", get_llvm(f34459, Tuple{Ptr{Int}, Type{Int}}, true, false, false))
+# A dispatched type-value has the egal type `TypeEgal{Int}`, a ghost the codegen elides;
+# the equality type `Type{Int}` may be a `==`-but-`!==` rep, so it is no longer a unique
+# representation that can be dropped (JuliaLang/julia#61323).
+@test !occursin("jl_f_tuple", get_llvm(f34459, Tuple{Ptr{Int}, Core.TypeEgal{Int}}, true, false, false))
 
 # issue #48394: incorrectly-inferred getproperty shouldn't introduce invalid cgval_t
 #               when dealing with unions of ghost values
