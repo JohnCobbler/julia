@@ -157,9 +157,14 @@ static int sig_match_by_type_simple(jl_value_t **types, size_t n, jl_tupletype_t
         }
         else if (decl == (jl_value_t*)jl_any_type) {
         }
+        else if (decl == (jl_value_t*)jl_anytype_type) {
+            if (!jl_is_kind(a))
+                return 0;
+        }
         else {
-            if (jl_is_typeeq(a)) // decl is not Type, because it would be caught above
+            if (jl_is_typeeq(a)) { // decl is not TypeEq or AnyType, because it would be caught above, so it must be concrete
                 a = jl_typeof(jl_typeeq_T(a));
+            }
             if (!jl_types_equal(a, decl))
                 return 0;
         }
