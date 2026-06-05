@@ -450,6 +450,26 @@ let get_param(::Type{Type{T}}) where {T} = T
     @test Tuple(get_param(t) for t in (Type{Int}, Type{Float64})) === (Int, Float64)
 end
 
+# PR #61915: a method whose argument is matched by the abstract kind `Core.AnyType`
+# (the supertype of the concrete kinds; `Type === AnyType`) must end up in the optimized
+# method cache when dispatched on a type-valued argument, rather than re-running a full
+# type-intersection lookup on every call. The latter (the bug, when `AnyType` was treated
+# as a concrete kind by `jl_compilation_sig`) allocates while rebuilding argument tuples,
+# so a cached call is allocation-free. Use several methods to mirror e.g. `widenconst`.
+struct AnyTypeCache61915a end
+struct AnyTypeCache61915b end
+anytype_dispatch_61915(::Int8) = 1
+anytype_dispatch_61915(@nospecialize t::Core.AnyType) = 2
+anytype_dispatch_61915(::TypeVar) = 3
+anytype_dispatch_61915(::AnyTypeCache61915a) = 4
+anytype_dispatch_61915(::AnyTypeCache61915b) = 5
+let r = Ref{Any}(Int)
+    @noinline callit() = anytype_dispatch_61915(r[])
+    @test callit() == 2          # dispatches to the `::Core.AnyType` method
+    callit()                     # warmup: populate the method cache
+    @test @allocated(callit()) == 0
+end
+
 @test promote_type(Bool,Bottom) === Bool
 
 # type declarations
