@@ -282,13 +282,12 @@ convert(::Type{T}, r::AbstractRange) where {T<:AbstractRange} = r isa T ? r : T(
 """
     OrdinalRange{T, S} <: AbstractRange{T}
 
-Supertype for ordinal ranges with elements of type `T` with
-spacing(s) of type `S`. The steps should be always-exact
-multiples of [`oneunit`](@ref), and `T` should be a "discrete"
-type, which cannot have values smaller than `oneunit`. For example,
-`Integer` or `Date` types would qualify, whereas `Float64` would not (since this
-type can represent values smaller than `oneunit(Float64)`.
-[`UnitRange`](@ref), [`StepRange`](@ref), and other types are subtypes of this.
+Supertype for ordinal ranges with elements of type `T` and step(s) of type `S`.
+Each step is an exact multiple of [`oneunit`](@ref), so the elements lie on a
+regular grid without rounding error. `Integer`, `Date`, and `Rational` ranges
+qualify, whereas `Float64` ranges do not (since a `Float64` step is not in
+general an exact multiple of `oneunit(Float64)`); those use [`StepRangeLen`](@ref)
+instead. [`UnitRange`](@ref), [`StepRange`](@ref), and other types are subtypes of this.
 """
 abstract type OrdinalRange{T,S} <: AbstractRange{T} end
 
