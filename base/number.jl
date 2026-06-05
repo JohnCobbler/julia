@@ -121,7 +121,16 @@ copy(x::Number) = x # some code treats numbers as collection-like
 """
     signbit(x)
 
-Return `true` if the value of the sign of `x` is negative, otherwise `false`.
+Return `false` or `true` depending on the sign of `x`:
+
+- `x < zero(x)` returns `true`
+- `x > zero(x)` returns `false`
+- if `x == zero(x)` the result is implementation defined; for types with distinct
+  signed zeros, `signbit(-zero(x))` returns `true` and `signbit(zero(x))` returns `false`
+- for special values such as `NaN` the result is implementation defined, preferring
+  consistency with non-special values
+
+This is equivalent to `x < zero(x)` whenever `x == x` and `!iszero(x)`.
 
 See also [`sign`](@ref), [`copysign`](@ref).
 
@@ -137,6 +146,9 @@ julia> signbit(5.5)
 false
 
 julia> signbit(-4.1)
+true
+
+julia> signbit(-0.0)
 true
 ```
 """
