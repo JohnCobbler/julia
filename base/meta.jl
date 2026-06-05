@@ -39,6 +39,14 @@ recognize a variable, it uses a limited set of characters (greatly extended by
 Unicode). `isidentifier()` makes it possible to query the parser directly
 whether a symbol contains valid characters.
 
+For a `Symbol` argument, `isidentifier` additionally requires that the symbol is
+already in the normalized form the parser produces (NFC plus Julia's identifier
+character foldings); a `Symbol` that becomes a different identifier only after
+normalization, such as `Symbol("\u00b5")` (the micro sign, which the parser folds
+to Greek `\u03bc`), is not itself an identifier. For an `AbstractString` argument the
+check is unchanged: it reports whether the string would *parse* as an identifier,
+without requiring it to be normalized.
+
 # Examples
 ```jldoctest
 julia> Meta.isidentifier(:x), Meta.isidentifier("1x")
@@ -53,7 +61,22 @@ function isidentifier(s::AbstractString)
     is_id_start_char(c) || return false
     return all(is_id_char, rest)
 end
-isidentifier(s::Symbol) = isidentifier(string(s))
+function isidentifier(s::Symbol)
+    str = string(s)
+    return isidentifier(str) && str == _normalize_identifier(str)
+end
+
+# Canonical form a `Symbol` takes when produced by the parser: NFC normalization
+# plus the `Base.Unicode._julia_charmap` confusable foldings. Implemented via the
+# identity-`chartransform` `normalize` (a plain `ccall`); the `chartransform`-closure
+# path is unusable here because `isidentifier` is reachable from `show(::Symbol)`
+# during precompilation, where calling a Julia closure back from C segfaults.
+function _normalize_identifier(str::String)
+    isascii(str) && return str
+    cm = Base.Unicode._julia_charmap
+    folded = map(c -> (u = UInt32(c); Char(get(cm, u, u))), str)
+    return Base.Unicode.normalize(folded, :NFC)
+end
 
 is_op_suffix_char(c::AbstractChar) = ccall(:jl_op_suffix_char, Cint, (UInt32,), c) != 0
 

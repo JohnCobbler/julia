@@ -515,6 +515,24 @@ end
 @test Meta.isidentifier(Symbol("x1"))
 @test !Meta.isidentifier(Symbol("x.1"))
 @test !Meta.isidentifier(Symbol("1x"))
+# issue #52641: isidentifier(::Symbol) must check that the symbol is in the
+# normalized form the parser produces (NFC plus the _julia_charmap foldings), so
+# that `show` does not print a non-normalized symbol identically to its normalized
+# counterpart. The String method keeps its parse-oriented meaning (no normalization).
+let nfd = Symbol("e\u0301"), nfc = Symbol("\u00e9")  # "é": combining vs precomposed
+    @test nfd != nfc
+    @test Meta.isidentifier(nfc)
+    @test !Meta.isidentifier(nfd)
+    @test Meta.isidentifier("e\u0301")               # String: parse meaning, unchanged
+    @test sprint(show, nfd) == "Symbol(\"e\u0301\")"   # quoted form preserves the non-normalized bytes
+    @test sprint(show, nfc) == ":\u00e9"            # normalized symbol prints bare
+end
+# _julia_charmap foldings: the parser maps these to a different identifier, so the
+# pre-folding symbol is not itself an identifier.
+@test !Meta.isidentifier(Symbol("\u00b5"))            # micro sign -> Greek mu
+@test Meta.isidentifier(Symbol("\u03bc"))             # Greek mu (canonical)
+@test !Meta.isidentifier(Symbol("\u210f"))            # hbar -> h with stroke
+@test !Meta.isidentifier(Symbol("\u025b"))            # latin open e -> Greek epsilon
 
 # issue #32408: Printing of names which are invalid identifiers
 # Invalid identifiers which need `var` quoting:
