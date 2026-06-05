@@ -275,6 +275,17 @@ end
 rand(r::MersenneTwister, sp::SamplerTrivial{CloseOpen12_64}) =
     (reserve_1(r); rand_inbounds(r, sp[]))
 
+# pin scalar floats to the legacy mantissa width so MersenneTwister streams are unchanged
+rand(r::MersenneTwister, ::SamplerTrivial{CloseOpen01{Float64}}) =
+    rand(r, CloseOpen12()) - 1.0
+
+rand(r::MersenneTwister, ::SamplerTrivial{CloseOpen01{Float32}}) =
+    reinterpret(Float32, rand(r, UInt23()) | 0x3f800000) - 1
+
+rand(r::MersenneTwister, ::SamplerTrivial{CloseOpen01{Float16}}) =
+    Float16(reinterpret(Float32,
+                        (rand(r, UInt10(UInt32)) << 13)  | 0x3f800000) - 1)
+
 #### integers
 
 rand(r::MersenneTwister, T::SamplerUnion(Int64, UInt64, Int128, UInt128)) =

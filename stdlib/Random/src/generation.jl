@@ -22,17 +22,23 @@ Sampler(::Type{RNG}, ::Type{T}, n::Repetition) where {RNG<:AbstractRNG,T<:Abstra
 # generic random generation function which can be used by RNG implementers
 # it is not defined as a fallback rand method as this could create ambiguities
 
+# _uint2float keeps the full mantissa, including the low bit
 rand(r::AbstractRNG, ::SamplerTrivial{CloseOpen01{Float16}}) =
-    Float16(reinterpret(Float32,
-                        (rand(r, UInt10(UInt32)) << 13)  | 0x3f800000) - 1)
+    _uint2float(rand(r, UInt16), Float16)
 
 rand(r::AbstractRNG, ::SamplerTrivial{CloseOpen01{Float32}}) =
-    reinterpret(Float32, rand(r, UInt23()) | 0x3f800000) - 1
+    _uint2float(rand(r, UInt32), Float32)
 
 rand(r::AbstractRNG, ::SamplerTrivial{CloseOpen12_64}) =
     reinterpret(Float64, 0x3ff0000000000000 | rand(r, UInt52()))
 
-rand(r::AbstractRNG, ::SamplerTrivial{CloseOpen01_64}) = rand(r, CloseOpen12()) - 1.0
+# dispatch on rng_native_52 so Float64-native RNGs keep the legacy 52-bit
+# construction (they have no UInt64 to draw the full mantissa from)
+rand(r::AbstractRNG, ::SamplerTrivial{CloseOpen01{Float64}}) =
+    _co01_64(r, rng_native_52(r))
+
+_co01_64(r::AbstractRNG, ::Type{UInt64})  = _uint2float(rand(r, UInt64), Float64)
+_co01_64(r::AbstractRNG, ::Type{Float64}) = rand(r, CloseOpen12()) - 1.0
 
 #### BigFloat
 

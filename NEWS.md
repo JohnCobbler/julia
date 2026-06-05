@@ -102,6 +102,11 @@ Standard library changes
 
 #### Random
 
+* `rand` for `Float16`, `Float32`, and `Float64` now uses the full mantissa for any RNG
+  that relies on the generic fallback (the bit-sampling interface), gaining one bit of
+  precision so the smallest representable values are reachable. `Xoshiro` and
+  `TaskLocalRNG` already did this; `MersenneTwister` keeps its previous sequences ([#44887]).
+
 #### REPL
 
 #### Test

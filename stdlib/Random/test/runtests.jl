@@ -1298,6 +1298,87 @@ end
     end
 end
 
+# minimal RNG: only the scalar bit-sampling interface, so floats hit the generic fallback
+struct Generation44887RNG <: Random.AbstractRNG
+    state::Base.RefValue{UInt64}
+end
+Generation44887RNG(seed) = Generation44887RNG(Ref(UInt64(seed)))
+Random.rng_native_52(::Generation44887RNG) = UInt64
+function Base.rand(r::Generation44887RNG, ::Type{UInt64})
+    r.state[] += 0x9e3779b97f4a7c15
+    z = r.state[]
+    z = (z ⊻ (z >> 30)) * 0xbf58476d1ce4e5b9
+    z = (z ⊻ (z >> 27)) * 0x94d049bb133111eb
+    z ⊻ (z >> 31)
+end
+Base.rand(r::Generation44887RNG, ::Type{UInt32}) = rand(r, UInt64) % UInt32
+Base.rand(r::Generation44887RNG, ::Type{UInt16}) = rand(r, UInt64) % UInt16
+
+@testset "generic float fallback uses full mantissa (#44887)" begin
+    # the low mantissa bit must be reachable, i.e. some draw is an odd multiple of 2^-precision
+    for T in (Float16, Float32, Float64)
+        r = Generation44887RNG(2024)
+        odd = false
+        xs = T[]
+        for _ in 1:20000
+            x = rand(r, T)
+            @test zero(T) <= x < one(T)
+            push!(xs, x)
+            odd |= isodd(round(BigInt, big(x) * big(2)^precision(T)))
+        end
+        @test odd
+        test_uniform(xs)
+    end
+end
+
+# Float64-native RNG (rng_native_52 === Float64): supplies only the native
+# CloseOpen12 stream, never a UInt64. The generic Float64 fallback must route
+# through rng_native_52 so it does not MethodError on such an RNG (#44887).
+struct Native52RNG44887 <: Random.AbstractRNG
+    state::Base.RefValue{UInt64}
+end
+Native52RNG44887(seed) = Native52RNG44887(Ref(UInt64(seed)))
+Random.rng_native_52(::Native52RNG44887) = Float64
+function Base.rand(r::Native52RNG44887, ::Random.SamplerTrivial{Random.CloseOpen12{Float64}})
+    r.state[] += 0x9e3779b97f4a7c15
+    z = r.state[]
+    z = (z ⊻ (z >> 30)) * 0xbf58476d1ce4e5b9
+    z = (z ⊻ (z >> 27)) * 0x94d049bb133111eb
+    z ⊻= (z >> 31)
+    reinterpret(Float64, 0x3ff0000000000000 | (z & 0x000fffffffffffff))
+end
+
+@testset "Float64-native RNG keeps legacy 52-bit path (#44887)" begin
+    r = Native52RNG44887(2024)
+    xs = Float64[]
+    for _ in 1:20000
+        x = rand(r, Float64)            # must not MethodError
+        @test 0.0 <= x < 1.0
+        push!(xs, x)
+    end
+    # legacy construction (CloseOpen12 - 1.0) leaves the low mantissa bit zero
+    @test all(iseven(round(BigInt, big(x) * big(2)^precision(Float64))) for x in xs)
+    test_uniform(xs)
+end
+
+@testset "MersenneTwister scalar floats stay stable (#44887)" begin
+    # golden values pin the MersenneTwister stream bit-for-bit
+    f64 = (r = MersenneTwister(12345); [rand(r, Float64) for _ in 1:8])
+    @test f64 == [0.7934222974036187, 0.9313830018347671, 0.6021407813719819,
+                  0.9432622609174366, 0.21439118683166458, 0.9987758634938373,
+                  0.25881347729407866, 0.561650155074656]
+    f32 = (r = MersenneTwister(12345); [rand(r, Float32) for _ in 1:8])
+    @test f32 == Float32[0.408216, 0.6163291, 0.44756854, 0.27392614,
+                         0.99907815, 0.71752393, 0.5927633, 0.979872]
+    f16 = (r = MersenneTwister(12345); [rand(r, Float16) for _ in 1:8])
+    @test f16 == Float16[0.10547, 0.968, 0.4814, 0.00293, 0.4482, 0.956, 0.917, 0.1113]
+    # lengths not a multiple of the SIMD block exercise the scalar tail
+    @test rand(MersenneTwister(999), Float32, 5) ==
+        Float32[0.35196698, 0.6356859, 0.76789415, 0.5819632, 0.77508223]
+    @test rand(MersenneTwister(999), Float16, 9) ==
+        Float16[0.3135, 0.919, 0.539, 0.829, 0.589, 0.3457, 0.4424, 0.8223, 0.4736]
+end
+
 @testset "Docstrings" begin
     @test isempty(Docs.undocumented_names(Random))
 end
