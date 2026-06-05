@@ -861,6 +861,14 @@ let s = Some("foo")
     @test !occursin("You attempted to index the type String", err_str)
 end
 
+let sv = Base.ScopedValues.ScopedValue("foo")
+    err_str = @except_str (sv[] = "bar") MethodError
+    @test occursin("You cannot assign to a ScopedValue", err_str)
+    @test occursin("Set its value for a dynamic scope using", err_str)
+    @test occursin("with", err_str)
+    @test occursin("@with", err_str)
+end
+
 # Execute backtrace once before checking formatting, see #38858
 backtrace()
 

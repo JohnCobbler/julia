@@ -1376,6 +1376,13 @@ function nonsetable_type_hint_handler(io, ex, arg_types, kwargs)
             print(io, "\nYou attempted to index the type $Tx, rather than an instance of the type. Make sure you create the type using its constructor: ")
             printstyled(io, "d = $Tx([...])", color=:cyan)
             print(io, " rather than d = $Tx")
+        elseif T <: ScopedValues.ScopedValue
+            print(io, "\nYou cannot assign to a ScopedValue with `setindex!`/`[] =`. ")
+            print(io, "Set its value for a dynamic scope using ")
+            printstyled(io, "with", color=:cyan)
+            print(io, " or ")
+            printstyled(io, "@with", color=:cyan)
+            print(io, ", e.g. `with(sv => value) do ... end`.")
         end
     end
 end
