@@ -389,7 +389,10 @@ The optional `esc` argument specifies any additional characters that should also
 escaped by a prepending backslash (`\"` is also escaped by default in the first form).
 
 The argument `keep` specifies a collection of characters which are to be kept as
-they are. Notice that `esc` has precedence here.
+they are. Notice that `esc` has precedence here, so a character that is also in `esc`
+is escaped regardless of `keep`. In particular, `"` is in `esc` by default in the first
+form, so it cannot be kept via `keep` alone; pass an explicit `esc` that omits it
+(for example `esc=()`) instead.
 
 The argument `ascii` can be set to `true` to escape all non-ASCII characters,
 whereas the default `ascii=false` outputs printable Unicode characters as-is.
@@ -415,6 +418,12 @@ julia> escape_string("aaa\\nbbb")
 
 julia> escape_string("aaa\\nbbb"; keep = '\\n')
 "aaa\\nbbb"
+
+julia> escape_string("\\""; keep = '"') # esc has precedence, so " is still escaped
+"\\\\\\""
+
+julia> escape_string("\\"", (); keep = '"') # omit " from esc to keep it
+"\\""
 
 julia> escape_string("\\xfe\\xff") # invalid utf-8
 "\\\\xfe\\\\xff"
