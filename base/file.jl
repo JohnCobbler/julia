@@ -357,6 +357,14 @@ function checkfor_mv_cp_cptree(src::AbstractString, dst::AbstractString, txt::Ab
             end
             rm(dst; recursive=true, force=true)
         else
+            if Base.samefile(src, dst)
+                abs_src = islink(src) ? abspath(readlink(src)) : abspath(src)
+                abs_dst = islink(dst) ? abspath(readlink(dst)) : abspath(dst)
+                throw(ArgumentError(string("'src' and 'dst' refer to the same file/dir; ",
+                                           "$(txt) is a no-op.\n  ",
+                                           "`src` refers to: $(abs_src)\n  ",
+                                           "`dst` refers to: $(abs_dst)\n")))
+            end
             throw(ArgumentError(string("'$dst' exists. `force=true` ",
                                        "is required to remove '$dst' before $(txt).")))
         end

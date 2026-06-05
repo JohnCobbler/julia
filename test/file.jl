@@ -848,6 +848,72 @@ mktempdir() do tmpdir
     rm(b_tmpdir)
 end
 
+@testset "mv with src and dst the same path (#55833)" begin
+    mktempdir() do dir
+        f = joinpath(dir, "f.txt")
+        write(f, "data")
+        err = try
+            mv(f, f)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("refer to the same file/dir", err.msg)
+        @test occursin("no-op", err.msg)
+        @test !occursin("force=true", err.msg)
+        @test isfile(f)
+        @test read(f, String) == "data"
+
+        # a different existing dst still asks for force=true
+        g = joinpath(dir, "g.txt")
+        write(g, "other")
+        err2 = try
+            mv(f, g)
+            nothing
+        catch e
+            e
+        end
+        @test err2 isa ArgumentError
+        @test occursin("force=true", err2.msg)
+        @test !occursin("no-op", err2.msg)
+
+        # a non-existing dst is a normal move
+        h = joinpath(dir, "h.txt")
+        mv(f, h)
+        @test !ispath(f)
+        @test read(h, String) == "data"
+    end
+
+    have_symlink = try
+        mktempdir() do dir
+            symlink("target", joinpath(dir, "probe"))
+            rm(joinpath(dir, "probe"))
+        end
+        true
+    catch
+        false
+    end
+    if have_symlink
+        mktempdir() do dir
+            f = joinpath(dir, "f.txt")
+            write(f, "data")
+            lnk = joinpath(dir, "lnk")
+            symlink(f, lnk)
+            err = try
+                mv(lnk, f)
+                nothing
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test occursin("refer to the same file/dir", err.msg)
+            @test isfile(f)
+            @test islink(lnk)
+        end
+    end
+end
+
 @testset "rename" begin
     # some of the windows specific behavior may be fixed in new versions of julia
     mktempdir() do dir
