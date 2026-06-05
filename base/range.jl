@@ -234,7 +234,7 @@ function range_error(start, step, stop, length)
     hasstart  = start !== nothing
     hasstep   = step  !== nothing
     hasstop   = stop  !== nothing
-    haslength = start !== nothing
+    haslength = length !== nothing
 
     hint = if hasstart && hasstep && hasstop && haslength
         "Try specifying only three arguments"

@@ -1801,6 +1801,15 @@ end
     @test_throws TypeError range(; length=5.5)
 end
 
+@testset "issue #50492 range_error hint" begin
+    # hint must name the missing arguments, not the supplied `length`
+    @test_throws "At least one of `start` or `stop`" range(; step=2.0, length=3)
+    @test_throws "At least one of `length` or `stop`" range(; step=2.0)
+    @test_throws "Try specifying more arguments" range(; step=2.0, stop=7.5)
+    @test range(; length=3) == 1:3
+    @test range(1, 10, length=5) == 1.0:2.25:10.0
+end
+
 @testset "issue #23300#issuecomment-371575548" begin
     for (start, stop) in ((-5, 5), (-5.0, 5), (-5, 5.0), (-5.0, 5.0))
         @test @inferred(range(big(start), stop=big(stop), length=11)) isa LinRange{BigFloat}
