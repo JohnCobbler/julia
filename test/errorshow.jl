@@ -1150,6 +1150,43 @@ module TestWorldAgeUndef end
     @test occursin("while current world is", err_str)
 end
 
+# Source module for #60227: explicit import of a binding that is not defined
+module ImportSource60227
+    global declared_unassigned::Int
+end
+
+@testset "UndefVarError hint for explicit import (#60227)" begin
+    # Import a name that does not exist in the source module. The import warns
+    # but proceeds, leaving an explicit-import binding whose source is undefined.
+    @eval module ImportUndefined60227
+        using ..ImportSource60227: never_declared
+    end
+    ex = try
+        @eval ImportUndefined60227 never_declared
+    catch e
+        e
+    end
+    @test ex isa UndefVarError
+    str = sprint(Base.showerror, ex)
+    @test !occursin("was defined as", str)
+    @test occursin("which is not defined", str)
+
+    # Negative control: importing a declared-but-unassigned global keeps the
+    # accurate "was defined ... but not assigned a value" message.
+    @eval module ImportDeclared60227
+        using ..ImportSource60227: declared_unassigned
+    end
+    ex2 = try
+        @eval ImportDeclared60227 declared_unassigned
+    catch e
+        e
+    end
+    @test ex2 isa UndefVarError
+    str2 = sprint(Base.showerror, ex2)
+    @test occursin("was defined as", str2)
+    @test occursin("but not assigned a value", str2)
+end
+
 # test showing MethodError with type argument
 struct NoMethodsDefinedHere; end
 let buf = IOBuffer()

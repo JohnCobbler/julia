@@ -1499,7 +1499,13 @@ function UndefVarError_hint(io::IO, ex::UndefVarError)
                 "importing it from a particular module, or qualifying the name ",
                 "with the module it should come from.")
             elseif is_some_explicit_imported(kind)
-                print(io, "\nSuggestion: this global was defined as `$(partition_restriction(bpart).globalref)` but not assigned a value.")
+                imported_from = partition_restriction(bpart).globalref
+                src_kind = binding_kind(lookup_binding_partition(ex.world, imported_from))
+                if src_kind === PARTITION_KIND_GUARD
+                    print(io, "\nSuggestion: this import refers to `$(imported_from)`, which is not defined.")
+                else
+                    print(io, "\nSuggestion: this global was defined as `$(imported_from)` but not assigned a value.")
+                end
             elseif kind === PARTITION_KIND_BACKDATED_CONST
                 print(io, "\nSuggestion: define the const at top-level before running function that uses it (stricter Julia v1.12+ rule).")
             end
