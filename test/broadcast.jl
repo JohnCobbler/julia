@@ -1171,6 +1171,19 @@ end
     @test Broadcast.BroadcastFunction(+)(2:3, 2:3) isa AbstractRange
 end
 
+@testset "Issue #61174: muladd over a range stays lazy" begin
+    @test muladd.(0.0:8.0, 2.0, 1.0) === 1.0:2.0:17.0
+    @test muladd.(2.0, 0.0:8.0, 1.0) === 1.0:2.0:17.0
+    for (r, m, a) in ((0.0:8.0, 2.0, 1.0), (1:5, 3, -2), (0.0:0.5:2.0, 4.0, 0.5), (10:-2:0, -1, 7))
+        @test muladd.(r, m, a) isa AbstractRange
+        @test muladd.(m, r, a) isa AbstractRange
+        @test muladd.(r, m, a) == (r .* m) .+ a == muladd.(collect(r), m, a)
+        @test muladd.(m, r, a) == (m .* r) .+ a == muladd.(m, collect(r), a)
+    end
+    @test muladd.([1.0, 2.0], 2.0, 1.0) isa Vector
+    @test muladd.([1.0, 2.0], 2.0, 1.0) == [3.0, 5.0]
+end
+
 @testset "#42063" begin
     buf = IOBuffer()
     @test println.(buf, [1,2,3]) == [nothing, nothing, nothing]

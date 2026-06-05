@@ -1190,6 +1190,11 @@ broadcasted(::DefaultArrayStyle{1}, ::typeof(*), r::LinRange, x::Number) = LinRa
 broadcasted(::DefaultArrayStyle{1}, ::typeof(*), r::OrdinalRange, x::AbstractFloat) =
     Base.range_start_step_length(first(r)*x, step(r)*x, length(r))
 
+broadcasted(::DefaultArrayStyle{1}, ::typeof(muladd), r::AbstractRange, m::Number, a::Number) =
+    broadcasted(DefaultArrayStyle{1}(), +, broadcasted(DefaultArrayStyle{1}(), *, r, m), a)
+broadcasted(::DefaultArrayStyle{1}, ::typeof(muladd), m::Number, r::AbstractRange, a::Number) =
+    broadcasted(DefaultArrayStyle{1}(), +, broadcasted(DefaultArrayStyle{1}(), *, m, r), a)
+
 #broadcasted(::DefaultArrayStyle{1}, ::typeof(/), r::AbstractRange, x::Number) = range(first(r)/x, last(r)/x, length=length(r))
 broadcasted(::DefaultArrayStyle{1}, ::typeof(/), r::AbstractRange, x::Number) = range(first(r)/x, step=step(r)/x, length=length(r))
 broadcasted(::DefaultArrayStyle{1}, ::typeof(/), r::StepRangeLen{T}, x::Number) where {T} =
