@@ -1088,7 +1088,7 @@ JL_DLLEXPORT jl_value_t *jl_get_existing_strong_gf(jl_binding_t *b, size_t new_w
         }
         jl_module_t *from = jl_binding_dbgmodule(b);
         assert(from); // Can only be NULL if implicit, which we excluded above
-        jl_errorf("invalid method definition in %s: exported function %s.%s does not exist",
+        jl_errorf("invalid method definition in %s: function %s.%s does not exist",
                     jl_module_debug_name(b->globalref->mod), jl_module_debug_name(from), jl_symbol_name(b->globalref->name));
     }
     int istype = f && jl_is_type(f);

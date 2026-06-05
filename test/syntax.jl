@@ -2790,6 +2790,14 @@ end
 @test Mod3.f(10) == 21
 @test !isdefined(Mod3, :func)
 @test_throws ErrorException("invalid method definition in Mod3: function Mod.f must be explicitly imported to be extended") Core.eval(Mod3, :(f(x::Int) = x))
+# issue #57740: extending an explicitly imported binding with no value
+module Mod4
+global undef_import
+end
+module Mod5
+import ..Mod4: undef_import
+end
+@test_throws ErrorException("invalid method definition in Mod5: function Mod4.undef_import does not exist") Core.eval(Mod5, :(undef_import(x::Int) = x))
 @test !isdefined(Mod3, :always_undef) # resolve this binding now in Mod3
 @test Core.eval(Mod3, :(always_undef(x::Int) = x)) == invokelatest(getglobal, Mod3, :always_undef)
 @test Core.eval(Mod3, :(const always_undef = 3)) == invokelatest(getglobal, Mod3, :always_undef)
