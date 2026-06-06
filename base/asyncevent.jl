@@ -78,6 +78,9 @@ once. When the timer is closed (by [`close`](@ref)) waiting tasks are woken with
 [`isopen`](@ref) to check whether a timer is still active. An inactive timer will not fire.
 Use `t.timeout` and `t.interval` to read the setup conditions of a `Timer` `t`.
 
+The minimum resolvable `delay` and `interval` is 1 millisecond (an input of `0.001`); smaller
+positive values are rounded up to 1 millisecond.
+
 ```julia-repl
 julia> t = Timer(1.0; interval=0.5)
 Timer (open, timeout: 1.0 s, interval: 0.5 s) @0x000000010f4e6e90
