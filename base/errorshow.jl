@@ -1394,6 +1394,22 @@ end
 
 Experimental.register_error_hint(string_concatenation_hint_handler, MethodError)
 
+# Display a hint when converting a character to a string fails, which is what
+# happens when a string is `append!`ed to a `Vector{String}`: a string is
+# iterable over its characters, so `append!` tries to convert each `Char`.
+function string_collection_element_hint_handler(@nospecialize(io::IO), ex::MethodError, arg_types::Vector{Any}, kwargs::Vector{Any})
+    if ex.f === convert && length(arg_types) == 2 &&
+       arg_types[1] === Type{String} && unwrapva(arg_types[2]) <: AbstractChar
+        print(io, "\nTo add a string as a single element, use ")
+        printstyled(io, "push!(collection, str)", color=:cyan)
+        print(io, "; a string is iterable, so ")
+        printstyled(io, "append!", color=:cyan)
+        print(io, " adds its characters individually.")
+    end
+end
+
+Experimental.register_error_hint(string_collection_element_hint_handler, MethodError)
+
 # Display a hint in case the user tries to use the min or max function on an iterable
 # or tries to use something like `collect` on an iterator without defining either IteratorSize or length
 function methods_on_iterable(io, ex, arg_types, kwargs)

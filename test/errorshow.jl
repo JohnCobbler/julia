@@ -20,6 +20,7 @@ _register_if_missing(Base.nonsetable_type_hint_handler, MethodError)
 _register_if_missing(Base.fielderror_listfields_hint_handler, FieldError)
 _register_if_missing(Base.fielderror_dict_hint_handler, FieldError)
 _register_if_missing(Base.apply_type_unionall_hint_handler, TypeError)
+_register_if_missing(Base.string_collection_element_hint_handler, MethodError)
 @testset "SystemError" begin
     err = try; systemerror("reason", Cint(0)); false; catch ex; ex; end::SystemError
     errs = sprint(Base.showerror, err)
@@ -1458,6 +1459,20 @@ end
 let err_str
     err_str = @except_str +() MethodError
     @test !occursin("String concatenation is performed with *", err_str)
+end
+
+# https://github.com/JuliaLang/julia/issues/53177
+let err_str
+    err_str = @except_str append!(["a"], "b") MethodError
+    @test occursin("push!(collection, str)", err_str)
+end
+let err_str
+    err_str = @except_str push!(String[], 'b') MethodError
+    @test occursin("push!(collection, str)", err_str)
+end
+let err_str
+    err_str = @except_str convert(Int, "x") MethodError
+    @test !occursin("push!(collection, str)", err_str)
 end
 
 struct MissingLength; end
