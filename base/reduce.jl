@@ -11,22 +11,26 @@ const AbstractArrayOrBroadcasted = Union{AbstractArray, AbstractBroadcasted}
     Base.add_sum(x, y)
 
 The reduction operator used in `sum`. The main difference from [`+`](@ref) is that small
-integers are promoted to `Int`/`UInt`.
+integers (and complex numbers built from them) are promoted to `Int`/`UInt`.
 """
 add_sum(x, y) = x + y
 add_sum(x::Union{Bool,BitIntegerSmall}, y::Union{Bool,BitIntegerSmall}) = Int(x) + Int(y)
 add_sum(x::BitUnsignedSmall, y::BitUnsignedSmall) = UInt(x) + UInt(y)
+add_sum(x::Complex{<:BitSignedSmall},   y::Complex{<:BitSignedSmall})   = Complex{Int}(x)  + Complex{Int}(y)
+add_sum(x::Complex{<:BitUnsignedSmall}, y::Complex{<:BitUnsignedSmall}) = Complex{UInt}(x) + Complex{UInt}(y)
 add_sum(x::Real, y::Real)::Real = x + y
 
 """
     Base.mul_prod(x, y)
 
 The reduction operator used in `prod`. The main difference from [`*`](@ref) is that small
-integers are promoted to `Int`/`UInt`.
+integers (and complex numbers built from them) are promoted to `Int`/`UInt`.
 """
 mul_prod(x, y) = x * y
 mul_prod(x::BitSignedSmall, y::BitSignedSmall) = Int(x) * Int(y)
 mul_prod(x::BitUnsignedSmall, y::BitUnsignedSmall) = UInt(x) * UInt(y)
+mul_prod(x::Complex{<:BitSignedSmall},   y::Complex{<:BitSignedSmall})   = Complex{Int}(x)  * Complex{Int}(y)
+mul_prod(x::Complex{<:BitUnsignedSmall}, y::Complex{<:BitUnsignedSmall}) = Complex{UInt}(x) * Complex{UInt}(y)
 mul_prod(x::Real, y::Real)::Real = x * y
 
 and_all(x, y) = (x && y)::Bool
@@ -351,9 +355,13 @@ reduce_empty(::typeof(or_any), ::Type{T}) where {T} = false
 reduce_empty(::typeof(add_sum), ::Type{T}) where {T} = reduce_empty(+, T)
 reduce_empty(::typeof(add_sum), ::Type{T}) where {T<:BitSignedSmall}  = zero(Int)
 reduce_empty(::typeof(add_sum), ::Type{T}) where {T<:BitUnsignedSmall} = zero(UInt)
+reduce_empty(::typeof(add_sum), ::Type{Complex{T}}) where {T<:BitSignedSmall}   = zero(Complex{Int})
+reduce_empty(::typeof(add_sum), ::Type{Complex{T}}) where {T<:BitUnsignedSmall} = zero(Complex{UInt})
 reduce_empty(::typeof(mul_prod), ::Type{T}) where {T} = reduce_empty(*, T)
 reduce_empty(::typeof(mul_prod), ::Type{T}) where {T<:BitSignedSmall}  = one(Int)
 reduce_empty(::typeof(mul_prod), ::Type{T}) where {T<:BitUnsignedSmall} = one(UInt)
+reduce_empty(::typeof(mul_prod), ::Type{Complex{T}}) where {T<:BitSignedSmall}   = one(Complex{Int})
+reduce_empty(::typeof(mul_prod), ::Type{Complex{T}}) where {T<:BitUnsignedSmall} = one(Complex{UInt})
 
 reduce_empty(op::BottomRF, ::Type{T}) where {T} = reduce_empty(op.rf, T)
 reduce_empty(op::MappingRF, ::Type{T}) where {T} = mapreduce_empty(op.f, op.rf, T)
@@ -405,9 +413,13 @@ reduce_first(::typeof(*), x::AbstractChar) = string(x)
 reduce_first(::typeof(add_sum), x) = reduce_first(+, x)
 reduce_first(::typeof(add_sum), x::BitSignedSmall)   = Int(x)
 reduce_first(::typeof(add_sum), x::BitUnsignedSmall) = UInt(x)
+reduce_first(::typeof(add_sum), x::Complex{<:BitSignedSmall})   = Complex{Int}(x)
+reduce_first(::typeof(add_sum), x::Complex{<:BitUnsignedSmall}) = Complex{UInt}(x)
 reduce_first(::typeof(mul_prod), x) = reduce_first(*, x)
 reduce_first(::typeof(mul_prod), x::BitSignedSmall)   = Int(x)
 reduce_first(::typeof(mul_prod), x::BitUnsignedSmall) = UInt(x)
+reduce_first(::typeof(mul_prod), x::Complex{<:BitSignedSmall})   = Complex{Int}(x)
+reduce_first(::typeof(mul_prod), x::Complex{<:BitUnsignedSmall}) = Complex{UInt}(x)
 reduce_first(::typeof(vcat), x) = vcat(x)
 reduce_first(::typeof(hcat), x) = hcat(x)
 

@@ -138,6 +138,29 @@ end
 @test sum([3]) === 3
 @test sum([3.0]) === 3.0
 
+# small-integer complex eltypes widen like their real counterparts (#15523)
+@testset "sum/prod widening for Complex of small integers" begin
+    @test sum(ones(Complex{Int8}, 100000)) === Complex{Int}(100000, 0)
+    @test sum(ones(Complex{UInt8}, 300)) === Complex{UInt}(300, 0)
+    @test prod(fill(Complex{Int8}(2, 0), 10)) === Complex{Int}(1024, 0)
+    # `mean` is `sum(x)/length(x)`, so widening `sum` fixes it too
+    let v = ones(Complex{Int8}, 100000)
+        @test sum(v) / length(v) === Complex{Float64}(1.0, 0.0)
+    end
+    # empty and single-element reductions widen consistently
+    @test sum(Complex{Int8}[]) === Complex{Int}(0, 0)
+    @test sum(Complex{UInt8}[]) === Complex{UInt}(0, 0)
+    @test prod(Complex{Int8}[]) === Complex{Int}(1, 0)
+    @test sum([Complex{Int8}(3, 4)]) === Complex{Int}(3, 4)
+    @test prod([Complex{UInt8}(3, 0)]) === Complex{UInt}(3, 0)
+    # scalar reductions widen, matching `sum(Int8(3)) === Int(3)` above
+    @test sum(Complex{Int8}(3, 4)) === Complex{Int}(3, 4)
+    @test prod(Complex{UInt8}(3, 0)) === Complex{UInt}(3, 0)
+    # negative controls: already-wide and real small-int eltypes are unchanged
+    @test sum(ones(Complex{Int}, 3)) === Complex{Int}(3, 0)
+    @test typeof(sum(Int8[1, 2, 3])) === Int
+end
+
 z = reshape(1:16, (2,2,2,2))
 fz = float(z)
 @test sum(z) === 136
