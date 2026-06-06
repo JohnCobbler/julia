@@ -2275,6 +2275,10 @@ function failfast_print()
     printstyled(" Fail or Error occurred\n\n"; color = Base.error_color())
 end
 
+_testset_is_underscore(s) = s isa Symbol && all(==('_'), string(s))
+_testset_has_underscore(lhs) = _testset_is_underscore(lhs) ||
+    (lhs isa Expr && lhs.head === :tuple && any(_testset_has_underscore, lhs.args))
+
 """
 Generate the code for a `@testset` with a `for` loop argument
 """
@@ -2296,14 +2300,18 @@ function testset_forloop(args, testloop, source)
     desc, testsettype, options = parse_testset_args(args[1:end-1])
 
     if desc === nothing
-        # No description provided. Generate from the loop variable names
-        v = loopvars[1].args[1]
-        desc = Expr(:string, "$v = ", esc(v)) # first variable
-        for l = loopvars[2:end]
-            v = l.args[1]
-            push!(desc.args, ", $v = ")
-            push!(desc.args, esc(v))
+        # No description provided. Generate from the loop variable names,
+        # skipping all-underscore variables: those are write-only and cannot
+        # be read back into the generated description string.
+        parts = Any[]
+        for l in loopvars
+            lhs = l.args[1]
+            _testset_has_underscore(lhs) && continue
+            isempty(parts) || push!(parts, ", ")
+            push!(parts, "$lhs = ")
+            push!(parts, esc(lhs))
         end
+        desc = isempty(parts) ? "" : Expr(:string, parts...)
     end
 
     if testsettype === nothing

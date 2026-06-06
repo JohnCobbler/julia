@@ -927,6 +927,58 @@ end
 @test typeof(tss[1]) == Test.DefaultTestSet
 @test tss[1].n_passed == 1
 
+# Issue #45571 (all-underscore loop variables in the auto-generated description)
+@testset "testset/for with underscore loop variables (#45571)" begin
+    # single underscore: empty auto-description
+    tss = @testset for _ in 1:2
+        @test true
+    end
+    @test length(tss) == 2
+    @test all(t -> t.description == "", tss)
+
+    # underscore in second position: surviving variable leads the description
+    tss = @testset for i in 1:2, _ in 1:2
+        @test true
+    end
+    @test all(t -> startswith(t.description, "i = "), tss)
+
+    # underscore first, named second: named variable used
+    tss = @testset for _ in 1:2, j in 1:2
+        @test true
+    end
+    @test all(t -> startswith(t.description, "j = "), tss)
+
+    # destructuring with underscore: dropped from description, no error
+    tss = @testset for (_, x) in [(1, 2), (3, 4)]
+        @test true
+    end
+    @test all(t -> t.description == "", tss)
+
+    # all-underscore destructuring: empty description, no error
+    tss = @testset for (_, _) in [(1, 2)]
+        @test true
+    end
+    @test all(t -> t.description == "", tss)
+
+    # negative control: named scalar loop variable description unchanged
+    tss = @testset for i in 1:2
+        @test true
+    end
+    @test [t.description for t in tss] == ["i = 1", "i = 2"]
+
+    # negative control: named destructuring description unchanged
+    tss = @testset for (a, b) in [(1, 2)]
+        @test true
+    end
+    @test tss[1].description == "(a, b) = (1, 2)"
+
+    # negative control: explicit description still wins over the filter
+    tss = @testset "given" for _ in 1:2
+        @test true
+    end
+    @test all(t -> t.description == "given", tss)
+end
+
 # Issue #17908 (return)
 testset_depth17908 = Test.get_testset_depth()
 @testset for i in 1:3
