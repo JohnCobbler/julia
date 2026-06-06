@@ -27,6 +27,12 @@ memory (in bytes) or the number of allocations they span.
 
 See also [`sizeof`](@ref).
 
+!!! note
+    `summarysize` returns a best-effort estimate of the memory footprint and is not guaranteed to be
+    exact. In particular, it may not perfectly account for shared or aliased data, internal padding
+    and type-tag overhead, or memory held outside the Julia heap. Use it as an approximate guide
+    rather than an authoritative byte count.
+
 # Examples
 ```jldoctest
 julia> Base.summarysize(1.0)
