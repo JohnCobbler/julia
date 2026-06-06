@@ -1684,6 +1684,22 @@ is_quoted(ex::Expr)      = is_expr(ex, :quote, 1) || is_expr(ex, :inert, 1)
 unquoted(ex::QuoteNode)  = ex.value
 unquoted(ex::Expr)       = ex.args[1]
 
+# Expression heads whose surface syntax round-trips through the parser unchanged,
+# so `Expr(:quote, body)` built only from them can be deparsed as `:(body)`
+# instead of the `$(Expr(:quote, ...))` fallback. Heads that re-introduce
+# LineNumberNodes (`:block`, `:if`, `:for`, ...), interpolate (`:string`), or
+# have no surface form are deliberately excluded and keep the fallback.
+const _deparseable_quote_heads = (:call, :(=), :., :ref, :curly, :vect, :tuple,
+    :(::), :comparison, :(&&), :(||), :(...), :comprehension, :typed_comprehension,
+    :typed_vcat, :typed_hcat, :vcat, :hcat, :braces, :(:), :where)
+
+# Whether `body` can be deparsed inside a quote and still round-trip: every Expr
+# head must be deparseable and every QuoteNode must wrap a Symbol.
+_deparseable_quote(@nospecialize(body)) = true
+_deparseable_quote(body::QuoteNode) = body.value isa Symbol
+_deparseable_quote(body::Expr) =
+    (body.head in _deparseable_quote_heads) && all(_deparseable_quote, body.args)
+
 ## AST printing helpers ##
 
 function printstyled end
@@ -2412,6 +2428,10 @@ function show_unquoted(io::IO, ex::Expr, indent::Int, prec::Int, quote_level::In
 
     elseif head === :quote && nargs == 1 && isa(args[1], Symbol)
         show_unquoted_quote_expr(IOContext(io, beginsym=>false), args[1]::Symbol, indent, 0, quote_level+1)
+    elseif head === :quote && nargs == 1 && _deparseable_quote(args[1])
+        print(io, ":(")
+        show_unquoted(IOContext(io, beginsym=>false), args[1], indent+2, 0, quote_level+1)
+        print(io, ")")
     elseif head === :quote && !(get(io, :unquote_fallback, true)::Bool)
         if nargs == 1 && is_expr(args[1], :block)
             show_block(IOContext(io, beginsym=>false), "quote", Expr(:quote, (args[1]::Expr).args...), indent,

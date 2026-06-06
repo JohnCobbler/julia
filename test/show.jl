@@ -1173,6 +1173,35 @@ end"""
 @test repr(Expr(:quote, QuoteNode(Expr(:$, :x)))) == ":(\$(Expr(:quote, :(\$(QuoteNode(:(\$(Expr(:\$, :x)))))))))"
 @test repr(Expr(:quote, Expr(:quote, Expr(:foo)))) == ":(\$(Expr(:quote, :(\$(Expr(:quote, :(\$(Expr(:foo)))))))))"
 
+# issue #57412: deparse `:quote` nodes whose body round-trips through the parser
+@test repr(Expr(:quote, :(1 + 1))) == ":(:(1 + 1))"
+@test repr(Expr(:quote, QuoteNode(:a))) == ":(:(:a))"
+@test_repr "Expr(:quote, :(1 + 1))"
+@test_repr "Expr(:quote, QuoteNode(:a))"
+@test_repr "Expr(:quote, :(f(x, y)))"
+@test_repr "Expr(:quote, :(a.b))"
+@test_repr "Expr(:quote, :([1, 2, 3]))"
+@test_repr ":(:(1 + 1))"
+@test_repr ":(:(:a))"
+# every deparsed `:quote` must round-trip via `eval(Meta.parse(repr(x))) == x`
+let deparse_cases = Any[Expr(:quote, :(1 + 1)), Expr(:quote, QuoteNode(:a)),
+        Expr(:quote, :(f(x, y))), Expr(:quote, :(a.b)), Expr(:quote, :([1, 2, 3])),
+        Expr(:quote, :(a[1])), Expr(:quote, :(x::Int)), Expr(:quote, :(a < b < c)),
+        Expr(:quote, :(1:2)), eval(Meta.parse(":(:(:a))"))]
+    for c in deparse_cases
+        @test eval(Meta.parse(repr(c))) == c
+        @test !occursin("Expr(:quote", repr(c))
+    end
+end
+# bodies that cannot round-trip keep the fallback (Expr(:quote, ...) or quote...end)
+let fallback_cases = Any[Expr(:quote, Expr(:$, :x)), Expr(:quote, Expr(:quote, :a)),
+        Expr(:quote, Expr(:block, :a, :b)), Expr(:quote, :(if a; b; end)),
+        Expr(:quote, Expr(:foo)), Expr(:quote, QuoteNode(:(1 + 1)))]
+    for c in fallback_cases
+        @test occursin("Expr(", repr(c)) || occursin("quote", repr(c))
+    end
+end
+
 # unquoting
 @test_repr "\$y"
 @test_repr "\$\$y"

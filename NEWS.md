@@ -79,6 +79,8 @@ New library features
   `c` to cleanly cancel immediately, `d` to detach, `i` for a profile peek,
   `v` to toggle verbose mode showing elapsed time, CPU%, and memory usage, and `?` for help. ([#60943]).
 * Instances of an `Enum` can now be given their own docstrings within the `@enum` definition ([#61955]).
+* `show` now deparses `Expr(:quote, x)` nodes as `:(x)` when `x` round-trips through the parser,
+  rather than the `:(\$(Expr(:quote, ...)))` fallback; bodies that would not round-trip keep the fallback ([#57412]).
 
 Standard library changes
 ------------------------
