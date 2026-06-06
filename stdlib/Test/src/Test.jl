@@ -371,6 +371,33 @@ struct Threw <: ExecutionResult
     source::LineNumberNode
 end
 
+# Euclidean-style norm sufficient for reporting the relative error of a failed
+# `≈` comparison, duplicated locally so Test need not depend on LinearAlgebra
+# (see issue #55812). Honors a user-supplied `norm` when present.
+_approx_norm(x::Number) = abs(x)
+_approx_norm(x) = sqrt(sum(abs2, x))
+
+# Detail appended to a failed `≈` test message: the computed relative error and,
+# when an operand is zero with no `atol`, a note that relative tolerance is
+# meaningless against zero. Returns "" if any operation throws (e.g. operands
+# without `-`), so the formatter never itself errors on a test failure.
+function _approx_failure_detail(x, y, atol, nrm)
+    try
+        d = nrm(x - y)
+        mx = max(nrm(x), nrm(y))
+        relerr = iszero(mx) ? d : d / mx
+        detail = string("\n    computed rel error: ", relerr)
+        if (iszero(x) || iszero(y)) && iszero(atol)
+            detail = string(detail,
+                "\n    note: an operand is zero and no `atol` was given; relative ",
+                "tolerance is meaningless against zero — pass `atol` (see `?isapprox`).")
+        end
+        return detail
+    catch
+        return ""
+    end
+end
+
 function eval_test_comparison(comparison::Expr, ops::Vector{Any}, source::LineNumberNode, negate::Bool=false)
     comparison.head === :comparison || throw(ArgumentError("$comparison is not a comparison expression"))
     comparison_args = comparison.args
@@ -383,6 +410,11 @@ function eval_test_comparison(comparison::Expr, ops::Vector{Any}, source::LineNu
         if res
             # chained comparisons stop running at the first `false`
             res = op(a, b)
+            # for a failed `≈`, report the computed relative error
+            # (`res === false`, never `!res`, so a `missing` result is left alone)
+            if res === false && op === isapprox
+                kw_suffix *= _approx_failure_detail(a, b, 0, _approx_norm)
+            end
         end
     end
 
@@ -412,6 +444,15 @@ function eval_test_function(func, args, kwargs, quoted_func::Union{Expr,Symbol},
     quoted_args = mapany(quoted, args)
     if quoted_func === :≈ && !res
         kw_suffix = " ($(join(["$k=$v" for (k, v) in kwargs], ", ")))"
+        if length(args) == 2
+            nrm = _approx_norm
+            atol = 0
+            for (k, v) in kwargs
+                k === :norm && (nrm = v)
+                k === :atol && (atol = v)
+            end
+            kw_suffix *= _approx_failure_detail(args[1], args[2], atol, nrm)
+        end
     elseif !isempty(kwargs)
         kwargs_expr = Expr(:parameters, Any[Expr(:kw, k, quoted(v)) for (k, v) in kwargs]...)
         pushfirst!(quoted_args, kwargs_expr)

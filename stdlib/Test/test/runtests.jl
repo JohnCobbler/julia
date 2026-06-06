@@ -1376,6 +1376,56 @@ end
     @test occursin("Evaluated: 0.9 ≈ 0.1 (nans=true, atol=0.01)", msg)
 end
 
+# issue #55812: `≈` failure message reports the computed relative error.
+# The detail rides on the `Evaluated:` line, shown only when the evaluated
+# operands differ from the source expression — hence variable operands here,
+# matching the existing `≈ with atol` test above.
+@testset "≈ relative-error failure message" begin
+    local cmd = `$(Base.julia_cmd()) --startup-file=no --color=no`
+    f(src) = read(pipeline(ignorestatus(`$cmd -e $src`), stderr=devnull), String)
+
+    msg = f("using Test; x, y = 1.0, 1.5; @test x ≈ y")
+    @test occursin("Evaluated: 1.0 ≈ 1.5", msg)
+    @test occursin("computed rel error:", msg)
+    @test occursin("0.33", msg)
+
+    # array operands use the duplicated Euclidean norm
+    msg = f("using Test; x, y = [1.0, 2.0], [1.0, 4.0]; @test x ≈ y")
+    @test occursin("computed rel error:", msg)
+
+    # zero operand without atol triggers the guidance note
+    msg = f("using Test; x, y = 0.0, 1.0; @test x ≈ y")
+    @test occursin("computed rel error:", msg)
+    @test occursin("an operand is zero", msg)
+    @test occursin("pass `atol`", msg)
+
+    # supplying atol suppresses the zero-operand note (still a failure)
+    msg = f("using Test; x, y = 0.0, 1.0; @test x ≈ y atol=0.5")
+    @test occursin("computed rel error:", msg)
+    @test !occursin("an operand is zero", msg)
+
+    # a user-supplied norm is honored when computing the reported error
+    msg = f("using Test; x, y = 1.0, 5.0; @test x ≈ y norm=(z->2abs(z))")
+    @test occursin("computed rel error:", msg)
+
+    # negative control: a non-`≈` failure message gains no rel-error detail
+    msg = f("using Test; x, y = 1, 2; @test x == y")
+    @test occursin("Evaluated: 1 == 2", msg)
+    @test !occursin("computed rel error:", msg)
+
+    # negative control: operands whose subtraction is undefined fall back
+    # gracefully to the bare suffix with no formatter exception
+    msg = f("""
+        using Test
+        struct NoMinus55812 end
+        Base.isapprox(::NoMinus55812, ::NoMinus55812; kw...) = false
+        a = NoMinus55812(); b = NoMinus55812()
+        @test a ≈ b
+        """)
+    @test occursin("Test Failed", msg)
+    @test !occursin("computed rel error:", msg)
+end
+
 erronce() = @error "an error" maxlog=1
 
 @testset "@test_logs" begin
