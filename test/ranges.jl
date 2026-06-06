@@ -8,6 +8,22 @@ using .Main.OffsetArrays
 
 @testset "range construction" begin
     @test_throws ArgumentError range(start=1, step=1, stop=2, length=10)
+    # String endpoints cannot form a range (#51780): report a clear, range-specific
+    # error instead of letting the generic method fail inside `stop - start`.
+    @test_throws ArgumentError "A":"z"
+    @test_throws ArgumentError "A":1:"z"
+    let msg = sprint(showerror, try; "A":"z"; catch e; e; end)
+        @test occursin("AbstractString", msg)
+        @test occursin("'A':'z'", msg)
+    end
+    # negative controls: only AbstractString endpoints are intercepted.
+    @test 'a':'c' == 'a':1:'c'
+    @test collect('a':'c') == ['a', 'b', 'c']
+    @test 1:5 isa UnitRange{Int}
+    @test 1.0:2.0 isa AbstractRange
+    @test 1//2:3//2 isa AbstractRange
+    # no `-` method or hint was added: bare string subtraction still throws MethodError.
+    @test_throws MethodError "a" - "b"
     @test_throws ArgumentError range(start=1, step=1, stop=10, length=11)
 
     r = 3.0:2:11

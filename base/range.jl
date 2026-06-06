@@ -6,6 +6,19 @@
 
 (:)(start::T, stop::T) where {T} = (:)(start, oftype(stop >= start ? stop - start : start - stop, 1), stop)
 
+# String endpoints cannot form a range: intercept before the generic method tries
+# `stop - start` (undefined for strings) and report a range-specific error.
+(:)(start::AbstractString, stop::AbstractString) = _string_range_error(start, stop)
+(:)(start::AbstractString, step, stop::AbstractString) = _string_range_error(start, stop)
+function _string_range_error(start, stop)
+    throw(ArgumentError(LazyString(
+        "cannot construct a range with `AbstractString` endpoints ",
+        repr(start), ":", repr(stop),
+        "; range endpoints must support arithmetic (e.g. `1:10`) or be characters ",
+        "(e.g. `'A':'z'`). For a range of characters use single quotes: ",
+        "`'A':'z'`.")))
+end
+
 # promote start and stop, leaving step alone
 (:)(start::A, step, stop::C) where {A<:Real, C<:Real} =
     (:)(convert(promote_type(A, C), start), step, convert(promote_type(A, C), stop))
