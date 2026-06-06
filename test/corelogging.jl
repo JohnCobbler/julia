@@ -167,6 +167,20 @@ end
     @test_throws MethodError @macrocall(@error)
 end
 
+# issue #58447
+@testset "Repeated keyword arguments" begin
+    @test_throws ArgumentError @macrocall(@info "msg" a=1 a=2)
+    @test_throws ArgumentError @macrocall(@warn "msg" a=1 a=2)
+    @test_throws ArgumentError @macrocall(@logmsg Info "msg" a=1 a=2)
+    # positional and mixed positional/explicit duplicates
+    @test_throws ArgumentError @macrocall(@info "msg" a a)
+    @test_throws ArgumentError @macrocall(@info "msg" a a=1)
+    # distinct keys, special keys, and a repeated special key are unaffected
+    @test (@macrocall(@info "msg" a=1 b=2); true)
+    @test (@macrocall(@info "msg" _group=:g a=1); true)
+    @test (@macrocall(@info "msg" _id=:x _id=:y a=1); true)
+end
+
 @testset "Any type" begin
     @test_logs (:info, sum) @info sum
     # TODO: make this work (here we want `@test_logs` to fail)

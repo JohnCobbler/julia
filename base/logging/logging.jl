@@ -445,6 +445,7 @@ function process_logmsg_exs(_orig_module, _file, _line, level, message, exs...)
     local _group, _id
     _module = _orig_module
     kwargs = Any[]
+    seen_keys = Set{Symbol}()
     for ex in exs
         if ex isa Expr && ex.head === :(=)
             k, v = ex.args
@@ -465,12 +466,17 @@ function process_logmsg_exs(_orig_module, _file, _line, level, message, exs...)
                 _line = esc(v)
             else
                 # Copy across key value pairs for structured log records
+                k in seen_keys && throw(ArgumentError(LazyString("Log message has repeated keyword argument `", k, "`")))
+                push!(seen_keys, k)
                 push!(kwargs, Expr(:kw, k, esc(v)))
             end
         elseif ex isa Expr && ex.head === :... # Keyword splatting
             push!(kwargs, esc(ex))
         else # Positional arguments - will be converted to key value pairs automatically.
-            push!(kwargs, Expr(:kw, Symbol(ex), esc(ex)))
+            k = Symbol(ex)
+            k in seen_keys && throw(ArgumentError(LazyString("Log message has repeated keyword argument `", k, "`")))
+            push!(seen_keys, k)
+            push!(kwargs, Expr(:kw, k, esc(ex)))
         end
     end
 

@@ -79,6 +79,8 @@ New library features
   `c` to cleanly cancel immediately, `d` to detach, `i` for a profile peek,
   `v` to toggle verbose mode showing elapsed time, CPU%, and memory usage, and `?` for help. ([#60943]).
 * Instances of an `Enum` can now be given their own docstrings within the `@enum` definition ([#61955]).
+* The logging macros (`@info`, `@warn`, `@logmsg`, ...) now throw a clear `ArgumentError` when a
+  keyword argument key is repeated, instead of a misleading internal syntax error ([#58447]).
 
 Standard library changes
 ------------------------
