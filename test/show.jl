@@ -2965,3 +2965,20 @@ let m = only(methods(f_show_method))
         @test "f_show_method(x::T) where T<:Integer" == s
     end
 end
+
+@testset "#57189: annotate non-Int signed value type parameters" begin
+    @test repr(Val{Int32(7)}) == "Val{Int32(7)}"
+    @test repr(Val{Int8(-2)}) == "Val{Int8(-2)}"
+    @test repr(Val{Int16(5)}) == "Val{Int16(5)}"
+    @test eval(Meta.parse(repr(Val{Int32(7)}))) === Val{Int32(7)}
+    @test eval(Meta.parse(repr(Val{Int8(-2)}))) === Val{Int8(-2)}
+    # negative controls: params that already round-trip stay bare
+    @test repr(Val{7}) == "Val{7}"
+    @test repr(Val{UInt8(3)}) == "Val{0x03}"
+    @test repr(Val{true}) == "Val{true}"
+    @test repr(Val{:sym}) == "Val{:sym}"
+    @test repr(Val{'A'}) == "Val{'A'}"
+    @test repr(Array{Int,2}) == "Matrix{Int64}"
+    @test eval(Meta.parse(repr(Val{7}))) === Val{7}
+    @test eval(Meta.parse(repr(Val{UInt8(3)}))) === Val{UInt8(3)}
+end

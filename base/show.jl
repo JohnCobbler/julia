@@ -768,6 +768,13 @@ function show_typeparams(io::IO, env::SimpleVector, orig::SimpleVector, wheres::
                 else
                     show(io, p)
                 end
+            elseif p isa Signed && !(p isa Int)
+                # Bare decimal parses back as Int, so a non-Int signed value
+                # param loses its type; annotate it to preserve round-tripping.
+                show(io, typeof(p))
+                print(io, '(')
+                show(io, p)
+                print(io, ')')
             else
                 show(io, p)
             end
