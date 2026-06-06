@@ -604,7 +604,8 @@ function typeinfo_prefix(io::IO, X)
         elseif print_without_params(eltype_X)
             sprint(show_type_name, unwrap_unionall(eltype_X).name; context=io), false # Print "Array" rather than "Array{T,N}"
         else
-            sprint(print, eltype_X; context=io), false
+            s = sprint(print, eltype_X; context=io)
+            (eltype_X isa UnionAll && !print_without_params(eltype_X)) ? "($s)" : s, false
         end
     end
 end

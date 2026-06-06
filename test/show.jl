@@ -2965,3 +2965,15 @@ let m = only(methods(f_show_method))
         @test "f_show_method(x::T) where T<:Integer" == s
     end
 end
+
+@testset "#43616: parenthesize UnionAll eltype in array-show prefix" begin
+    v = (Val{S} where S<:Integer)[Val{Int32}(), Val{Int64}()]
+    @test repr(v) == "(Val{S} where S<:Integer)[Val{Int32}(), Val{Int64}()]"
+    @test Meta.parse(repr(v)) isa Expr
+    @test eval(Meta.parse(repr(v))) == v
+    # negative controls: prefixes that already round-trip are unchanged
+    @test repr([1, 2, 3]) == "[1, 2, 3]"
+    @test repr(Int8[1]) == "Int8[1]"
+    @test repr(Any[1]) == "Any[1]"
+    @test repr(Real[1]) == "Real[1]"
+end
