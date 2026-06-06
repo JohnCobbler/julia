@@ -131,6 +131,18 @@ end
     catch_backtrace()
 
 Get the backtrace of the current exception, for use within `catch` blocks.
+
+The result is a raw backtrace: a `Vector` of instruction pointers captured at the
+point where the most recent exception was thrown. It is only meaningful while an
+exception is being handled, that is, inside a `catch` block; elsewhere it returns
+an empty backtrace.
+
+Pass the result to [`stacktrace`](@ref) to convert it into a readable `StackTrace`,
+or to [`showerror`](@ref) together with the caught exception.
+
+See also [`backtrace`](@ref), which captures a backtrace at the current program
+point regardless of any exception, and [`current_exceptions`](@ref), which returns
+the whole stack of exceptions currently being handled along with their backtraces.
 """
 function catch_backtrace()
     bt, bt2 = ccall(:jl_get_backtrace, Ref{SimpleVector}, ())
