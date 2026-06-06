@@ -43,6 +43,21 @@ julia> div(4, 3, RoundFromZero)
 julia> div(-4, 3, RoundFromZero)
 -2
 ```
+!!! warning "Mixed signed and unsigned operands"
+    When one operand is signed and the other unsigned, the result takes the
+    signedness of the first argument, and a mathematically-negative quotient can
+    therefore lose its sign. With an unsigned first argument the result is
+    unsigned, so a negative quotient is reinterpreted modulo `2^n`:
+
+    ```jldoctest
+    julia> div(UInt(1), -1)
+    0xffffffffffffffff
+    ```
+
+    With a signed first argument the result is signed and keeps its sign, for
+    example `div(-1, UInt(1)) === -1`. To obtain a signed quotient when the first
+    argument is unsigned, convert it first, e.g. `div(signed(x), y)`.
+
 !!! note "Floating-point numbers"
     Accurate results for floating-point arguments are only guaranteed when the
     mathematical value ``\\frac{x}{y}`` is within the range of exactly representable
@@ -153,7 +168,8 @@ end
 
 Largest integer less than or equal to `x / y`. Equivalent to `div(x, y, RoundDown)`.
 
-See also [`div`](@ref), [`cld`](@ref), [`fld1`](@ref).
+See also [`div`](@ref), [`cld`](@ref), [`fld1`](@ref); see `div` for the behavior
+of mixed signed and unsigned arguments.
 
 # Examples
 ```jldoctest
@@ -200,7 +216,8 @@ fld(a, b) = div(a, b, RoundDown)
 
 Smallest integer larger than or equal to `x / y`. Equivalent to `div(x, y, RoundUp)`.
 
-See also [`div`](@ref), [`fld`](@ref).
+See also [`div`](@ref), [`fld`](@ref); see `div` for the behavior of mixed signed
+and unsigned arguments.
 
 # Examples
 ```jldoctest
@@ -250,7 +267,8 @@ The quotient and remainder from Euclidean division.
 Equivalent to `(div(x, y, r), rem(x, y, r))`. Equivalently, with the default
 value of `r`, this call is equivalent to `(x ÷ y, x % y)`.
 
-See also [`fldmod`](@ref), [`cld`](@ref).
+See also [`fldmod`](@ref), [`cld`](@ref). See [`div`](@ref) for the behavior of
+mixed signed and unsigned arguments.
 
 # Examples
 ```jldoctest
