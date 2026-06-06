@@ -83,6 +83,10 @@ New library features
 Standard library changes
 ------------------------
 
+* `keepat!` now validates its indices with a non-elidable bounds check, matching
+  `deleteat!`. Previously an out-of-bounds index could read past the end of the
+  array when bounds checking was disabled ([#54401]).
+
 * `codepoint(c)` now succeeds for overlong encodings.  `Base.ismalformed`, `Base.isoverlong`, and
   `Base.show_invalid` are now `public` and documented (but not exported) ([#55152]).
 

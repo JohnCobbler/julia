@@ -1657,6 +1657,21 @@ end
     @test isempty(ea)
 end
 
+@testset "index keepat!" begin
+    @test keepat!(Vector(1:10), [2, 4, 6]) == [2, 4, 6]
+    @test keepat!(Vector(1:10), Int[]) == Int[]
+    @test keepat!(Vector(1:10), 1:10) == 1:10
+    # indices must be unique and sorted
+    @test_throws ArgumentError keepat!(Vector(1:5), [2, 1])
+    @test_throws ArgumentError keepat!(Vector(1:5), [2, 2])
+    # out-of-bounds indices throw, matching deleteat! (#54401). The check is
+    # non-elidable, so it must hold even when bounds checking is otherwise off.
+    @test_throws BoundsError keepat!(Vector(1:5), [2, 3, 6])
+    @test_throws BoundsError keepat!(Vector(1:5), [0])
+    elided(a, ix) = @inbounds keepat!(a, ix)
+    @test_throws BoundsError elided(Vector(1:5), [2, 3, 6])
+end
+
 @testset "deleteat!" begin
     for idx in Any[1, 2, 5, 9, 10, 1:0, 2:1, 1:1, 2:2, 1:2, 2:4, 9:8, 10:9, 9:9, 10:10,
                    8:9, 9:10, 6:9, 7:10]
