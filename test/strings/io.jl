@@ -349,3 +349,15 @@ end
     itr = ("foo" for _ in 1:100)
     @test Base.return_types(join, (typeof(itr),))[] == String
 end
+
+@testset "`join` allocation scaling (#53786)" begin
+    joinstr(n) = join([string(i) for i in 1:n], ",")
+    joinstr(10)  # warm up / compile away first-call allocations
+    a_small = @allocated joinstr(1_000)
+    a_large = @allocated joinstr(10_000)
+    # A 10x larger input must not blow allocations up super-linearly. The wide
+    # slack tolerates GC noise while still tripping on any return to O(n^2)
+    # buffering in the join path.
+    @test a_large < 20 * a_small
+    @test Base.return_types(join, (Vector{String}, String))[] == String
+end
