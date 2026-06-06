@@ -1858,18 +1858,21 @@ end
 # and the amount of indentation. If a test set had no failures, and
 # no failures in child test sets, there is no need to include those
 # in calculating the alignment
-function get_alignment(ts::DefaultTestSet, depth::Int)
+function get_alignment(ts::DefaultTestSet, depth::Int, verbose::Bool=false)
+    # Verbose was requested either at or above this level, or on this set itself
+    verbose |= print_verbose(ts)
     # The minimum width at this depth is
     ts_width = 2*depth + length(ts.description)
-    # If not verbose and all passing, no need to look at children
-    !ts.verbose && !anynonpass(ts) && return ts_width
+    # If verbose was not requested at or above this level and all passing,
+    # no need to look at children
+    !verbose && !anynonpass(ts) && return ts_width
     # Return the maximum of this width and the minimum width
     # for all children (if they exist)
     isempty(ts.results) && return ts_width
-    child_widths = map(t->get_alignment(t, depth+1), ts.results)
+    child_widths = map(t->get_alignment(t, depth+1, verbose), ts.results)
     return max(ts_width, maximum(child_widths))
 end
-get_alignment(ts, depth::Int) = 0
+get_alignment(ts, depth::Int, verbose::Bool=false) = 0
 
 """
     format_duration(::AbstractTestSet)
@@ -1900,7 +1903,8 @@ results(::AbstractTestSet) = ()
 # Recursive function that prints out the results at each level of
 # the tree of test sets
 function print_counts(io::IO, ts::AbstractTestSet, depth, align,
-                      pass_width, fail_width, error_width, broken_width, total_width, duration_width, showtiming)
+                      pass_width, fail_width, error_width, broken_width, total_width, duration_width, showtiming,
+                      verbose=print_verbose(ts))
     # Count results by each type at this level, and recursively
     # through any child test sets
     tc = get_test_counts(ts)
@@ -1955,13 +1959,15 @@ function print_counts(io::IO, ts::AbstractTestSet, depth, align,
     end
     println(io)
 
-    # Only print results at lower levels if we had failures or if the user
-    # wants. Requires the given `AbstractTestSet` to have a vector of results
-    if ((n_passes + n_broken != subtotal) || print_verbose(ts))
+    # Only print results at lower levels if we had failures or if verbose was
+    # requested at or above this level. Requires the given `AbstractTestSet` to
+    # have a vector of results
+    if ((n_passes + n_broken != subtotal) || verbose)
         for t in results(ts)
             if isa(t, AbstractTestSet)
                 print_counts(io, t, depth + 1, align,
-                    pass_width, fail_width, error_width, broken_width, total_width, duration_width, ts.showtiming)
+                    pass_width, fail_width, error_width, broken_width, total_width, duration_width, ts.showtiming,
+                    verbose || print_verbose(t))
             end
         end
     end

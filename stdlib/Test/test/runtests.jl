@@ -1752,6 +1752,8 @@ let ex = :(something_complex + [1, 2, 3])
 end
 
 @testset "verbose option" begin
+    # A verbose parent shows every descendant, even those whose own testset is
+    # not marked verbose (Child 2 and its children below). See #61434.
     expected = r"""
     Test Summary:             \| Pass  Total +Time
     Parent                    \|    9      9  \s*(\d+m)?\d*\.\ds
@@ -1760,6 +1762,9 @@ end
         Child 1\.2             \|    1      1  \s*(\d+m)?\d*\.\ds
         Child 1\.3             \|    1      1  \s*(\d+m)?\d*\.\ds
       Child 2                 \|    3      3  \s*(\d+m)?\d*\.\ds
+        Child 2\.1             \|    1      1  \s*(\d+m)?\d*\.\ds
+        Child 2\.2             \|    1      1  \s*(\d+m)?\d*\.\ds
+        Child 2\.3             \|    1      1  \s*(\d+m)?\d*\.\ds
       Child 3                 \|    3      3  \s*(\d+m)?\d*\.\ds
         Child 3\.1             \|    1      1  \s*(\d+m)?\d*\.\ds
         Child 3\.2             \|    1      1  \s*(\d+m)?\d*\.\ds
@@ -1818,6 +1823,50 @@ end
         cmd    = `$(Base.julia_cmd()) --startup-file=no --color=no $f`
         result = read(pipeline(ignorestatus(cmd), stderr=devnull), String)
         @test occursin(expected, result)
+    end
+end
+
+@testset "verbose option applies to all descendants (#61434)" begin
+    # A verbose root summarizes testsets nested at any depth, not just its
+    # direct children.
+    mktemp() do f, _
+        write(f,
+        """
+        using Test
+        @testset "level 0" verbose = true begin
+            @testset "level 1" begin
+                @testset "level 2" begin
+                    @test true
+                end
+            end
+        end
+        """)
+        cmd    = `$(Base.julia_cmd()) --startup-file=no --color=no $f`
+        result = read(pipeline(ignorestatus(cmd), stderr=devnull), String)
+        @test occursin("level 0", result)
+        @test occursin("level 1", result)
+        @test occursin("level 2", result)
+    end
+
+    # Negative control: with no verbose request and all tests passing, only the
+    # top-level summary is shown.
+    mktemp() do f, _
+        write(f,
+        """
+        using Test
+        @testset "level 0" begin
+            @testset "level 1" begin
+                @testset "level 2" begin
+                    @test true
+                end
+            end
+        end
+        """)
+        cmd    = `$(Base.julia_cmd()) --startup-file=no --color=no $f`
+        result = read(pipeline(ignorestatus(cmd), stderr=devnull), String)
+        @test occursin("level 0", result)
+        @test !occursin("level 1", result)
+        @test !occursin("level 2", result)
     end
 end
 
