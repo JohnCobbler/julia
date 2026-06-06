@@ -350,13 +350,19 @@ end
     @test Dates.toms(d)  == Dates.value(Dates.Millisecond(d)) == 86400000
     @test Dates.toms(w)  == Dates.value(Dates.Millisecond(w)) == 604800000
 
-    @test Dates.days(ms) == Dates.days(s) == Dates.days(mi) == Dates.days(h) == 0
+    @test Dates.days(ns) == Dates.days(us) == Dates.days(ms) == Dates.days(s) == Dates.days(mi) == Dates.days(h) == 0
+    @test Dates.days(Dates.Nanosecond(86400000000000)) == 1
+    @test Dates.days(Dates.Microsecond(86400000000)) == 1
+    @test Dates.days(Dates.Nanosecond(86400000000000 - 1)) == 0
+    @test Dates.days(Dates.Microsecond(86400000000 - 1)) == 0
     @test Dates.days(Dates.Millisecond(86400000)) == 1
     @test Dates.days(Dates.Second(86400)) == 1
     @test Dates.days(Dates.Minute(1440)) == 1
     @test Dates.days(Dates.Hour(24)) == 1
     @test Dates.days(d) == 1
     @test Dates.days(w) == 7
+    @test Dates.days(Dates.Day(1) + Dates.Microsecond(1)) == 1
+    @test Dates.days(Dates.Day(1) + Dates.Nanosecond(1)) == 1
 
     @test Dates.seconds(ns) == 0.000000001
     @test Dates.seconds(us) == 0.000001
