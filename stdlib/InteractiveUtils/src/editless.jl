@@ -182,7 +182,7 @@ function define_default_editors()
                                Int, (Ptr{Cvoid}, Cwstring, Cwstring,
                                      Ptr{Cvoid}, Ptr{Cvoid}, Cint),
                                C_NULL, "open", path, C_NULL, C_NULL, 10)
-                systemerror(:edit, result ≤ 32)
+                result ≤ 32 && _no_editor_error()
             end
             return true
         end
@@ -194,6 +194,13 @@ function define_default_editors()
     end
 end
 define_default_editors()
+
+# Raised when no editor environment variable is set and the platform fallback is
+# unavailable, naming the variables that control editor selection.
+@noinline _no_editor_error() = error(
+    "no editor found: set the `JULIA_EDITOR`, `VISUAL`, or `EDITOR` environment " *
+    "variable to your preferred editor (e.g. `JULIA_EDITOR=vim`), or register one " *
+    "with `InteractiveUtils.define_editor`.")
 
 """
     editor()
@@ -213,6 +220,9 @@ function editor()
     editor_file = "/etc/alternatives/editor"
     editor = (Sys.iswindows() || Sys.isapple()) ? "open" :
         isfile(editor_file) ? realpath(editor_file) : "emacs"
+    if !(Sys.iswindows() || Sys.isapple()) && !isfile(editor_file) && Sys.which(editor) === nothing
+        _no_editor_error()
+    end
     return Cmd([editor])
 end
 

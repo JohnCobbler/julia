@@ -796,6 +796,16 @@ withenv("JULIA_EDITOR" => nothing, "VISUAL" => nothing, "EDITOR" => nothing) do
     @test editor() == `'/Applications/Sublime Text.app/Contents/SharedSupport/bin/subl' -w`
 end
 
+# When no editor env var is set and the platform fallback is unavailable, the error
+# names the variables that control editor selection (#55839). The message path is
+# unit-tested directly so it is exercised regardless of the test machine's editors.
+let msg = sprint(showerror, try; InteractiveUtils._no_editor_error(); catch e; e; end)
+    @test occursin("JULIA_EDITOR", msg)
+    @test occursin("VISUAL", msg)
+    @test occursin("EDITOR", msg)
+    @test occursin("define_editor", msg)
+end
+
 # clipboard functionality
 if Sys.isapple()
     let str = "abc\0def"
