@@ -198,6 +198,32 @@ end
 @test_repr "(!x)↑!a"
 @test_repr "(!x).a"
 @test_repr "(!x)::a"
+# A unary operator on a negative literal parenthesizes the operand; Expr(:call,
+# :-, -4.0) must print as -(-4.0), not the unparseable --4.0.
+@test repr(Expr(:call, :-, -4.0)) == ":(-(-4.0))"
+@test repr(Expr(:call, :-, -4)) == ":(-(-4))"
+@test repr(Expr(:call, :-, -4.0f0)) == ":(-(-4.0f0))"
+@test repr(Expr(:call, :-, -0.0)) == ":(-(-0.0))"
+@test repr(Expr(:call, :+, -4.0)) == ":(+(-4.0))"
+@test repr(Expr(:call, :!, -4)) == ":(!(-4))"
+@test repr(Expr(:call, :~, -4)) == ":(~(-4))"
+# Round-trip: an atomic negative literal reparses to the same expression.
+let ops = (:-, :+, :!, :~, :√, :¬),
+    lits = (-4.0, -4, -4.0f0, -0.0)
+    for op in ops, l in lits
+        e = Expr(:call, op, l)
+        @test Meta.parse(string(e)) == e
+    end
+end
+# Multi-token negative literals (Rational, Inf) print parseable text.
+for l in (-Inf, -1//2, -2.5e-3)
+    @test Meta.parse(string(Expr(:call, :-, l))) isa Expr
+end
+# Positive literals and non-literal operands stay unparenthesized.
+@test repr(Expr(:call, :-, 4.0)) == ":(-4.0)"
+@test repr(Expr(:call, :-, 4)) == ":(-4)"
+@test repr(Expr(:call, :!, :x)) == ":(!x)"
+@test repr(Expr(:call, :-, :x)) == ":(-x)"
 
 # invalid UTF-8 strings
 @test_repr "\"\\ud800\""
