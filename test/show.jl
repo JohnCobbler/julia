@@ -199,6 +199,48 @@ end
 @test_repr "(!x).a"
 @test_repr "(!x)::a"
 
+# a unary operator call on a negative numeric literal must parenthesize the
+# argument so the printed form does not juxtapose two operator characters
+@testset "unary operator call on negative literal" begin
+    @test repr(Expr(:call, :-, -2.0)) == ":(-(-2.0))"
+    @test repr(Expr(:call, :-, -52)) == ":(-(-52))"
+    @test repr(Expr(:call, :-, -0.0)) == ":(-(-0.0))"
+    @test repr(Expr(:call, :+, -2.0)) == ":(+(-2.0))"
+
+    # positive and non-numeric arguments are unaffected
+    @test repr(Expr(:call, :-, 2.0)) == ":(-2.0)"
+    @test repr(Expr(:call, :-, 52)) == ":(-52)"
+    @test repr(Expr(:call, :-, :x)) == ":(-x)"
+    @test repr(Expr(:call, :-, :(<=))) == ":(-(<=))"
+    @test repr(Expr(:call, :!, :x)) == ":(!x)"
+
+    # nested: each negative literal level parenthesizes independently
+    @test repr(Expr(:call, :-, Expr(:call, :-, -2))) == ":(-(-(-2)))"
+
+    # the deparsed form is parseable (no juxtaposed operators) and value-round-trips
+    # for every operator/literal combination, with the literal type preserved when
+    # the literal's own deparse preserves it
+    typed = (Int64(-7), -52, Float16(-1.5), Float32(-1.5), -2.0,
+             -Inf, -Inf32, Float16(-Inf), typemin(Int64), -0.0, -1//3)
+    for op in (:-, :+), lit in typed
+        ex = Expr(:call, op, lit)
+        s = string(ex)
+        @test !startswith(s, "--") && !startswith(s, "++")
+        got = eval(Meta.parse(s))
+        @test got == eval(ex) && typeof(got) == typeof(eval(ex))
+    end
+    # narrow- and extended-precision literals (Int8/16/32, BigInt, BigFloat,
+    # Rational{Int8}) deparse parseably but lose their literal type on reparse, a
+    # pre-existing property of those literals that holds without the call too
+    for lit in (Int8(-7), Int16(-7), Int32(-7), typemin(Int8),
+                BigInt(-123456789012345678901234567890), BigFloat("-2.5"),
+                Rational{Int8}(-1, 3))
+        s = string(Expr(:call, :-, lit))
+        @test !startswith(s, "--")
+        @test Meta.isexpr(Meta.parse(s), :call)
+    end
+end
+
 # invalid UTF-8 strings
 @test_repr "\"\\ud800\""
 @test_repr "\"\\udfff\""

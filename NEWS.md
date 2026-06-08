@@ -85,6 +85,8 @@ Standard library changes
 
 * `codepoint(c)` now succeeds for overlong encodings.  `Base.ismalformed`, `Base.isoverlong`, and
   `Base.show_invalid` are now `public` and documented (but not exported) ([#55152]).
+* `repr` of a unary operator call on a negative literal (e.g. `Expr(:call, :-, -2.0)`) now
+  parenthesizes the argument so the output round-trips.
 
 #### JuliaSyntaxHighlighting
 
