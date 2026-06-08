@@ -396,13 +396,18 @@ function _searchindex(s::DenseUTF8String, t::DenseUTF8String, i::Integer)
     lastindex(t) == 1 && return something(findnext(isequal(t[1]), s, i), 0)
     # A valid needle always aligns to char boundaries, so the raw byte match is
     # sufficient.  An invalid needle may match inside a multibyte character; skip
-    # such positions and keep searching.
+    # positions where either the start or the end of the match falls mid-character.
     isvalid(t) && return _searchindex(codeunits(s), codeunits(t), i)
     sentinel = firstindex(s) - 1
+    nt = ncodeunits(t)
+    ns = ncodeunits(s)
     while true
         idx = _searchindex(codeunits(s), codeunits(t), i)
         idx == sentinel && return sentinel
-        isvalid(s, idx) && return idx
+        endpos = idx + nt
+        if isvalid(s, idx) && (endpos == ns + 1 || isvalid(s, endpos))
+            return idx
+        end
         i = idx + 1
     end
 end
@@ -720,10 +725,15 @@ function _rsearchindex(s::DenseUTF8String, t::DenseUTF8String, i::Integer)
         # Same rationale as _searchindex: valid needle never lands mid-char.
         isvalid(t) && return _rsearchindex(codeunits(s), codeunits(t), j)
         sentinel = firstindex(s) - 1
+        nt = ncodeunits(t)
+        ns = ncodeunits(s)
         while true
             idx = _rsearchindex(codeunits(s), codeunits(t), j)
             idx == sentinel && return sentinel
-            isvalid(s, idx) && return idx
+            endpos = idx + nt
+            if isvalid(s, idx) && (endpos == ns + 1 || isvalid(s, endpos))
+                return idx
+            end
             j = idx - 1
             j < 1 && return sentinel
         end

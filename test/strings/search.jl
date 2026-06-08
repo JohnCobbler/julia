@@ -284,7 +284,7 @@ end
 end
 
 # Issue #26796: searching for an invalid byte sequence in a valid string must not
-# throw or return an index inside a multibyte character.
+# throw or return a range that straddles a character boundary.
 @testset "Search for invalid string needle (#26796)" begin
     # Single continuation byte as needle: bytes of "é" are 0xc3 0xa9; \xa9 alone is invalid.
     @test isnothing(findfirst("\xa9", "aé"))
@@ -295,6 +295,11 @@ end
     # A lone leading byte is also invalid and must not match.
     @test isnothing(findfirst("\xc3", "aé"))
     @test isnothing(findlast("\xc3", "aé"))
+    # Multi-byte invalid needle that starts on a valid boundary but ends mid-character:
+    # [0xc3,0xa9,0xc3] matches at byte 1 of "éé"=[0xc3,0xa9,0xc3,0xa9] (valid start),
+    # but byte 1+3=4 is a continuation byte (mid-character), so the match must be rejected.
+    @test isnothing(findfirst(String(UInt8[0xc3,0xa9,0xc3]), "éé"))
+    @test isnothing(findlast(String(UInt8[0xc3,0xa9,0xc3]), "éé"))
     # Valid searches must continue to work.
     @test findfirst("é", "aé") == 2:2
     @test findlast("é", "aé") == 2:2
