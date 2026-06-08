@@ -158,7 +158,7 @@ function findnext(
     u = (reinterpret(UInt32, c) >> 24) % UInt8
     i = Int(i)::Int
     isvalid(s, i) || string_index_err(s, i)
-    return if is_standalone_byte(u)
+    return if is_standalone_byte(u) && !(u < 0x80 && ncodeunits(c) != 1)
         findnext(==(u), codeunits(s), i)
     else
         try_next(FwCharPosIter(s, c, last_utf8_byte(c)), i)
@@ -222,7 +222,7 @@ function findprev(
     c = Char(pred.x)::Char
     u = (reinterpret(UInt32, c) >> 24) % UInt8
     i = Int(i)::Int
-    return if is_standalone_byte(u)
+    return if is_standalone_byte(u) && !(u < 0x80 && ncodeunits(c) != 1)
         findprev(==(u), codeunits(s), i)
     else
         try_next(RvCharPosIter(s, c, last_utf8_byte(c)), i)

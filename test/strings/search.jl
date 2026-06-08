@@ -425,6 +425,24 @@ end
     @test findall("aa", "aaaaaa", overlap=true) == [1:2, 2:3, 3:4, 4:5, 5:6]
 end
 
+@testset "issue #48283: malformed Char must not match real ASCII bytes" begin
+    # A Char whose packed UInt32 has an ASCII leading byte but ncodeunits > 1
+    # was incorrectly matched via the standalone-byte fast path in findnext/findprev.
+    c = reinterpret(Char, 0x7effffff)   # leading byte 0x7e ('~'), ncodeunits = 4
+    @test isnothing(findfirst(==(c), "foo~bar"))
+    @test isnothing(findprev(==(c), "foo~bar", 7))
+    @test isnothing(findnext(==(c), "foo~bar", 1))
+    # Normal '~' searches must be unaffected.
+    @test findfirst(==(c_orig = '~'), "foo~bar") == 4
+    @test findprev(==(c_orig), "foo~bar", 7) == 4
+    # Second variant: isvalid(Char) == true but encoding packs extra bytes.
+    c2 = reinterpret(Char, 0x649e828c)  # leading byte 0x64 ('d'), ncodeunits = 4
+    @test isnothing(findfirst(==(c2), "foo d bar"))
+    @test isnothing(findprev(==(c2), "foo d bar", 9))
+    # Valid 'd' must still match.
+    @test findfirst(==('d'), "foo d bar") == 5
+end
+
 @testset "Findall char in string" begin
     @test findall(==('w'), "wabcwewwawk") == [1, 5, 7, 8, 10]
     @test isempty(findall(isequal("w"), "abcde!,"))
