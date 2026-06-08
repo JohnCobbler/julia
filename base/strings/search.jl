@@ -394,7 +394,17 @@ _nthbyte(t::AbstractVector, index) = t[index + (firstindex(t)-1)]
 function _searchindex(s::DenseUTF8String, t::DenseUTF8String, i::Integer)
     # Check for fast case of a single byte
     lastindex(t) == 1 && return something(findnext(isequal(t[1]), s, i), 0)
-    _searchindex(codeunits(s), codeunits(t), i)
+    # A valid needle always aligns to char boundaries, so the raw byte match is
+    # sufficient.  An invalid needle may match inside a multibyte character; skip
+    # such positions and keep searching.
+    isvalid(t) && return _searchindex(codeunits(s), codeunits(t), i)
+    sentinel = firstindex(s) - 1
+    while true
+        idx = _searchindex(codeunits(s), codeunits(t), i)
+        idx == sentinel && return sentinel
+        isvalid(s, idx) && return idx
+        i = idx + 1
+    end
 end
 
 function _searchindex(s::AbstractVector{<:Union{Int8,UInt8}},
@@ -707,7 +717,16 @@ function _rsearchindex(s::DenseUTF8String, t::DenseUTF8String, i::Integer)
         return something(findprev(isequal(t[1]), s, i), 0)
     elseif lastindex(t) != 0
         j = i ≤ ncodeunits(s) ? nextind(s, i)-1 : i
-        return _rsearchindex(codeunits(s), codeunits(t), j)
+        # Same rationale as _searchindex: valid needle never lands mid-char.
+        isvalid(t) && return _rsearchindex(codeunits(s), codeunits(t), j)
+        sentinel = firstindex(s) - 1
+        while true
+            idx = _rsearchindex(codeunits(s), codeunits(t), j)
+            idx == sentinel && return sentinel
+            isvalid(s, idx) && return idx
+            j = idx - 1
+            j < 1 && return sentinel
+        end
     elseif i > sizeof(s)
         return 0
     elseif i == 0

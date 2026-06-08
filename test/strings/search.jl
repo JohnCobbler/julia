@@ -283,6 +283,24 @@ end
     @test isnothing(findprev(==('\xa6'), "æa", 2))
 end
 
+# Issue #26796: searching for an invalid byte sequence in a valid string must not
+# throw or return an index inside a multibyte character.
+@testset "Search for invalid string needle (#26796)" begin
+    # Single continuation byte as needle: bytes of "é" are 0xc3 0xa9; \xa9 alone is invalid.
+    @test isnothing(findfirst("\xa9", "aé"))
+    @test isnothing(findlast("\xa9", "aé"))
+    # Multi-byte invalid needle whose bytes appear inside a multibyte character.
+    @test isnothing(findfirst("\xa9b", "aéb"))
+    @test isnothing(findlast("\xa9b", "aéb"))
+    # A lone leading byte is also invalid and must not match.
+    @test isnothing(findfirst("\xc3", "aé"))
+    @test isnothing(findlast("\xc3", "aé"))
+    # Valid searches must continue to work.
+    @test findfirst("é", "aé") == 2:2
+    @test findlast("é", "aé") == 2:2
+    @test findfirst("bar", "foobarbaz") == 4:6
+end
+
 @testset "string forward search with a two-char string literal" begin
     @test findfirst("xx", "foo,bar,baz") === nothing
     @test findfirst("fo", "foo,bar,baz") == 1:2
