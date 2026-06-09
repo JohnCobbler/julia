@@ -300,6 +300,12 @@ end
     # but byte 1+3=4 is a continuation byte (mid-character), so the match must be rejected.
     @test isnothing(findfirst(String(UInt8[0xc3,0xa9,0xc3]), "éé"))
     @test isnothing(findlast(String(UInt8[0xc3,0xa9,0xc3]), "éé"))
+    # findnext/findprev with a non-first start index must also guard boundaries.
+    @test isnothing(findnext(String(UInt8[0xc3,0xa9,0xc3]), "éé", 1))
+    @test isnothing(findprev(String(UInt8[0xc3,0xa9,0xc3]), "éé", lastindex("éé")+1))
+    # SubString haystack: DenseUTF8String includes SubString{String}.
+    @test isnothing(findfirst("\xa9", SubString("xaé", 2)))
+    @test isnothing(findfirst(String(UInt8[0xc3,0xa9,0xc3]), SubString("éé", 1)))
     # Valid searches must continue to work.
     @test findfirst("é", "aé") == 2:2
     @test findlast("é", "aé") == 2:2
