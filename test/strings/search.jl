@@ -441,6 +441,15 @@ end
     @test isnothing(findprev(==(c2), "foo d bar", 9))
     # Valid 'd' must still match.
     @test findfirst(==('d'), "foo d bar") == 5
+    # Malformed Char with ASCII leading byte AND ASCII last byte: the iterator
+    # fast path in FwCharPosIter/RvCharPosIter must not fire for multi-byte chars.
+    c3 = reinterpret(Char, 0x79ff7a65)  # lead 0x79 ('y'), last 0x65 ('e'), ncodeunits = 4
+    @test isnothing(findfirst(==(c3), "yes"))
+    @test isnothing(findprev(==(c3), "yes", 3))
+    @test isnothing(findnext(==(c3), "yes", 1))
+    # Valid 'y' and 'e' must still match.
+    @test findfirst(==('y'), "yes") == 1
+    @test findfirst(==('e'), "yes") == 2
 end
 
 @testset "Findall char in string" begin

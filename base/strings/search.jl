@@ -62,10 +62,11 @@ end
 function Base.iterate(s::FwCharPosIter, i::Int=1)
     scu = ncodeunits(s.string)
 
-    # By definition, if the last byte is a standalone byte, then the char
-    # is a single-byte char where the byte can never be a subset of another char.
-    # Hence, we can simply search for the occurrence of the byte itself.
-    if is_standalone_byte(s.last_char_byte)
+    # If the last byte is a standalone byte and the char is a valid single-byte
+    # char, the byte can never be a subset of another char, so we can search for
+    # it directly.  The ncodeunits check guards against malformed Chars whose
+    # packed last byte happens to be ASCII but whose full encoding is multi-byte.
+    if is_standalone_byte(s.last_char_byte) && ncodeunits(s.char) == 1
         i > scu && return nothing
         i = findnext(==(s.last_char_byte), codeunits(s.string), i)
         i === nothing ? nothing : (i, i + 1)
@@ -116,7 +117,7 @@ end
 #    incremented in the beginning, as that byte may be found at i + ncodeunits(char) - 1.
 function Base.iterate(s::RvCharPosIter, i::Int=ncodeunits(s.string))
     ncu = ncodeunits(s.char)
-    if is_standalone_byte(s.last_char_byte)
+    if is_standalone_byte(s.last_char_byte) && ncu == 1
         i < ncu && return nothing
         i = findprev(==(s.last_char_byte), codeunits(s.string), i)
         i === nothing ? nothing : (i, i - 1)
